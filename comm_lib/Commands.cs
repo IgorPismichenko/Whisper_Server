@@ -4,7 +4,7 @@ using System.Runtime.Serialization.Json;
 namespace comm_lib
 {
     [DataContract]
-    public class Commands
+    public class User
     {
         [DataMember]
         public string? login { get; set; }

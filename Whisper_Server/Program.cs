@@ -42,9 +42,9 @@ namespace Whisper_Server
             {
                 try
                 {
-                    Commands command = new Commands();
+                    User user = new User();
                     DataContractJsonSerializer jsonFormatter = null;
-                    jsonFormatter = new DataContractJsonSerializer(typeof(Commands));
+                    jsonFormatter = new DataContractJsonSerializer(typeof(User));
                     byte[] bytes = new byte[1024];
                     int bytesRec = 0;
                     while (true)
@@ -57,20 +57,20 @@ namespace Whisper_Server
                             return;
                         }
                         MemoryStream stream = new MemoryStream(bytes, 0, bytesRec);
-                        command = (Commands)jsonFormatter.ReadObject(stream);
+                        user = (User)jsonFormatter.ReadObject(stream);
                         stream.Close();
-                        if (command.command == "Login")
+                        if (user.command == "Login")
                         {
-                            WriteLine("User " + command.login + " sent authorization request on " + DateTime.Now.ToString());
+                            WriteLine("User " + user.login + " sent authorization request on " + DateTime.Now.ToString());
                             //дописать проверку данных с БД и открытие доступа в основной клиент
                             //с отправкой всех данных по пользователю (медиа, переписка, профиль и т.д) - функция Responce();
-                            WriteLine("User " + command.login + " is authorized on " + DateTime.Now.ToString());
+                            WriteLine("User " + user.login + " is authorized on " + DateTime.Now.ToString());
                         }
-                        else if (command.command == "Register")
+                        else if (user.command == "Register")
                         {
-                            WriteLine("New user " + command.login + " sent registration request on " + DateTime.Now.ToString());
+                            WriteLine("New user " + user.login + " sent registration request on " + DateTime.Now.ToString());
                             //дописать добавление в БД и открытие доступа в основной клиент
-                            WriteLine("New user " + command.login + " is registered on " + DateTime.Now.ToString());
+                            WriteLine("New user " + user.login + " is registered on " + DateTime.Now.ToString());
                         }
                     }
                 }
