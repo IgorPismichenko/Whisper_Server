@@ -3,6 +3,11 @@ using System.Net;
 using static System.Console;
 using System.Runtime.Serialization.Json;
 using comm_lib;
+using UsersDB;
+using UsersDBContext;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
+using System.Diagnostics;
+using Azure;
 
 namespace Whisper_Server
 {
@@ -62,21 +67,72 @@ namespace Whisper_Server
                         if (user.command == "Login")
                         {
                             WriteLine("User " + user.login + " sent authorization request on " + DateTime.Now.ToString());
-                            //дописать проверку данных с БД и открытие доступа в основной клиент
-                            //с отправкой всех данных по пользователю (медиа, переписка, профиль и т.д) - функция Responce();
-                            WriteLine("User " + user.login + " is authorized on " + DateTime.Now.ToString());
+                            using (var db = new UsersContext())
+                            {
+                                var query = from b in db.users
+                                            where b.login == user.login && b.password == user.password
+                                            select b;
+                                if (query.Count() > 0)
+                                {
+                                    user.command = "Accept";
+                                }
+                                else
+                                {
+                                    user.command = "Denied";
+                                }
+                            }
+                            Responce(handler, user);
+                                WriteLine("User " + user.login + " is authorized on " + DateTime.Now.ToString());
                         }
                         else if (user.command == "Register")
                         {
                             WriteLine("New user " + user.login + " sent registration request on " + DateTime.Now.ToString());
-                            //дописать добавление в БД и открытие доступа в основной клиент
+                            using (var db = new UsersContext())
+                            {
+                                var query = from b in db.users
+                                            where b.login == user.login || b.phone == user.phone
+                                            select b;
+                                if (query.Count() > 0)
+                                {
+                                    user.command = "Exist";
+                                }
+                                else
+                                {
+                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone };
+                                    db.users.Add(User);
+                                    db.SaveChanges();
+                                    user.command = "Accept";
+                                }
+                            }
+                            Responce(handler, user);
                             WriteLine("New user " + user.login + " is registered on " + DateTime.Now.ToString());
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    WriteLine("Сервер: " + ex.Message);
+                    WriteLine("Сервер-запрос: " + ex.Message);
+                }
+            });
+        }
+        private static async void Responce(Socket handler, User user)
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    DataContractJsonSerializer jsonFormatter = null;
+                    jsonFormatter = new DataContractJsonSerializer(typeof(User));
+                    MemoryStream stream = new MemoryStream();
+                    byte[] msg = null;
+                    jsonFormatter.WriteObject(stream, user);
+                    msg = stream.ToArray();
+                    handler.Send(msg);
+                    stream.Close();
+                }
+                catch (Exception ex)
+                {
+                    WriteLine("Сервер-ответ: " + ex.Message);
                 }
             });
         }
