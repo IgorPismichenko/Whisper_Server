@@ -32,7 +32,7 @@ namespace Whisper_Server
                     while (true)
                     {
                         Socket handler = sListener.Accept();
-                        Receive(handler);
+                        Receive(handler); 
                     }
                 }
                 catch (Exception ex)
@@ -55,6 +55,7 @@ namespace Whisper_Server
                     while (true)
                     {
                         bytesRec = handler.Receive(bytes);
+                        IPAddress ip = ((IPEndPoint)handler.RemoteEndPoint).Address;
                         if (bytesRec == 0)
                         {
                             handler.Shutdown(SocketShutdown.Both);
@@ -76,12 +77,12 @@ namespace Whisper_Server
                                 {
                                     user.command = "Accept";
                                 }
-                                else
+                                else if(user.login == "login" || user.password == "password" || query.Count() == 0)
                                 {
                                     user.command = "Denied";
                                 }
                             }
-                            Responce(handler, user);
+                            Responce(handler, user, ip);
                                 WriteLine("User " + user.login + " is authorized on " + DateTime.Now.ToString());
                         }
                         else if (user.command == "Register")
@@ -92,7 +93,7 @@ namespace Whisper_Server
                                 var query = from b in db.users
                                             where b.login == user.login || b.phone == user.phone
                                             select b;
-                                if (query.Count() > 0)
+                                if (query.Count() > 0 || user.login == "login" || user.password == "password" || user.phone == "phone")
                                 {
                                     user.command = "Exist";
                                 }
@@ -104,7 +105,7 @@ namespace Whisper_Server
                                     user.command = "Accept";
                                 }
                             }
-                            Responce(handler, user);
+                            Responce(handler, user, ip);
                             WriteLine("New user " + user.login + " is registered on " + DateTime.Now.ToString());
                         }
                     }
@@ -115,7 +116,7 @@ namespace Whisper_Server
                 }
             });
         }
-        private static async void Responce(Socket handler, User user)
+        private static async void Responce(Socket socket, User user, IPAddress ip)
         {
             await Task.Run(() =>
             {
@@ -127,7 +128,7 @@ namespace Whisper_Server
                     byte[] msg = null;
                     jsonFormatter.WriteObject(stream, user);
                     msg = stream.ToArray();
-                    handler.Send(msg);
+                    socket.Send(msg);
                     stream.Close();
                 }
                 catch (Exception ex)
