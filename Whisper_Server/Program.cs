@@ -55,7 +55,7 @@ namespace Whisper_Server
                     while (true)
                     {
                         bytesRec = handler.Receive(bytes);
-                        IPAddress ip = ((IPEndPoint)handler.RemoteEndPoint).Address;
+                        //IPAddress ip = ((IPEndPoint)handler.RemoteEndPoint).Address;
                         if (bytesRec == 0)
                         {
                             handler.Shutdown(SocketShutdown.Both);
@@ -76,14 +76,15 @@ namespace Whisper_Server
                                 if (query.Count() > 0)
                                 {
                                     user.command = "Accept";
+                                    WriteLine("User " + user.login + " is authorized on " + DateTime.Now.ToString());
                                 }
                                 else if(user.login == "login" || user.password == "password" || query.Count() == 0)
                                 {
                                     user.command = "Denied";
+                                    WriteLine("User " + user.login + " entered incorrect data - denied " + DateTime.Now.ToString());
                                 }
                             }
-                            Responce(handler, user, ip);
-                                WriteLine("User " + user.login + " is authorized on " + DateTime.Now.ToString());
+                            Responce(handler, user);
                         }
                         else if (user.command == "Register")
                         {
@@ -96,6 +97,7 @@ namespace Whisper_Server
                                 if (query.Count() > 0 || user.login == "login" || user.password == "password" || user.phone == "phone")
                                 {
                                     user.command = "Exist";
+                                    WriteLine("New user " + user.login + " was not registered - user info already exists" + DateTime.Now.ToString());
                                 }
                                 else
                                 {
@@ -103,10 +105,10 @@ namespace Whisper_Server
                                     db.users.Add(User);
                                     db.SaveChanges();
                                     user.command = "Accept";
+                                    WriteLine("New user " + user.login + " is registered on " + DateTime.Now.ToString());
                                 }
                             }
-                            Responce(handler, user, ip);
-                            WriteLine("New user " + user.login + " is registered on " + DateTime.Now.ToString());
+                            Responce(handler, user);
                         }
                     }
                 }
@@ -116,7 +118,7 @@ namespace Whisper_Server
                 }
             });
         }
-        private static async void Responce(Socket socket, User user, IPAddress ip)
+        private static async void Responce(Socket socket, User user)
         {
             await Task.Run(() =>
             {
