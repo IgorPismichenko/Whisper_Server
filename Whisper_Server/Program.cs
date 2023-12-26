@@ -8,6 +8,7 @@ using UsersDBContext;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 using System.Diagnostics;
 using Azure;
+using System.Collections.ObjectModel;
 
 namespace Whisper_Server
 {
@@ -76,6 +77,10 @@ namespace Whisper_Server
                                 if (query.Count() > 0)
                                 {
                                     user.command = "Accept";
+                                    query = from b in db.users
+                                            where b.login != user.login
+                                            select b;
+                                    user.contacts = (ObservableCollection<string>)query;
                                     WriteLine("User " + user.login + " is authorized on " + DateTime.Now.ToString());
                                 }
                                 else if(user.login == "login" || user.password == "password" || query.Count() == 0)
@@ -105,6 +110,10 @@ namespace Whisper_Server
                                     db.users.Add(User);
                                     db.SaveChanges();
                                     user.command = "Accept";
+                                    query = from b in db.users
+                                            where b.login != user.login
+                                            select b;
+                                    user.contacts = (ObservableCollection<string>)query;
                                     WriteLine("New user " + user.login + " is registered on " + DateTime.Now.ToString());
                                 }
                             }

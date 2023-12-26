@@ -1,4 +1,5 @@
-﻿using System.Runtime.Serialization;
+﻿using System.Collections.ObjectModel;
+using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 
 namespace comm_lib
@@ -14,5 +15,7 @@ namespace comm_lib
         public string? phone { get; set; }
         [DataMember]
         public string? command { get; set; }
+        [DataMember]
+        public ObservableCollection<string>? contacts { get; set; }
     }
 }

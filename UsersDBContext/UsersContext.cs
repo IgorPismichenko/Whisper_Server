@@ -27,6 +27,7 @@ namespace UsersDBContext
         }
 
         public DbSet<Users> users { get; set; }
+        public DbSet<Messages> messages { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
