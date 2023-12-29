@@ -16,6 +16,10 @@ namespace comm_lib
         [DataMember]
         public string? command { get; set; }
         [DataMember]
+        public string? mess { get; set; }
+        [DataMember]
+        public string? contact { get; set; }
+        [DataMember]
         public ObservableCollection<string>? contacts { get; set; }
     }
 }

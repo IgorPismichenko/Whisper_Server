@@ -6,5 +6,6 @@
         public string? login { get; set; }
         public string? password { get; set; }
         public string? phone { get; set; }
+        public string? ip { get; set; }
     }
 }

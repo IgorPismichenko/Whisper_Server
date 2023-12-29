@@ -9,6 +9,8 @@ using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 using System.Diagnostics;
 using Azure;
 using System.Collections.ObjectModel;
+using System.Security.AccessControl;
+using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace Whisper_Server
 {
@@ -56,7 +58,7 @@ namespace Whisper_Server
                     while (true)
                     {
                         bytesRec = handler.Receive(bytes);
-                        //IPAddress ip = ((IPEndPoint)handler.RemoteEndPoint).Address;
+                        IPAddress ip = ((IPEndPoint)handler.RemoteEndPoint).Address;
                         if (bytesRec == 0)
                         {
                             handler.Shutdown(SocketShutdown.Both);
@@ -80,7 +82,7 @@ namespace Whisper_Server
                                     query = from b in db.users
                                             where b.login != user.login
                                             select b;
-                                    user.contacts = (ObservableCollection<string>)query;
+                                    //user.contacts = (ObservableCollection<string>)query;
                                     WriteLine("User " + user.login + " is authorized on " + DateTime.Now.ToString());
                                 }
                                 else if(user.login == "login" || user.password == "password" || query.Count() == 0)
@@ -106,19 +108,33 @@ namespace Whisper_Server
                                 }
                                 else
                                 {
-                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone };
+                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone, ip = ip.ToString()};
                                     db.users.Add(User);
                                     db.SaveChanges();
                                     user.command = "Accept";
                                     query = from b in db.users
                                             where b.login != user.login
                                             select b;
-                                    user.contacts = (ObservableCollection<string>)query;
+                                    //user.contacts = (ObservableCollection<string>)query;
                                     WriteLine("New user " + user.login + " is registered on " + DateTime.Now.ToString());
                                 }
                             }
                             Responce(handler, user);
                         }
+                        //else if (user.command == "Send")
+                        //{
+                        //    WriteLine("New user " + user.login + " sent message on " + DateTime.Now.ToString() + "to " + user.contact);
+                        //    using (var db = new UsersContext())
+                        //    {
+                        //        var query = from b in db.users
+                        //                    where b.login == user.contact
+                        //                    select b.ip;
+                        //        var message = new Messages() { SenderIp = ip.ToString(), ReceiverIp = query.ToString(), Message = user.mess };
+                        //        db.messages.Add(message);
+                        //        db.SaveChanges();
+                        //    }
+                        //    //SendToReceiver(Socket socket); доделать!!!
+                        //}
                     }
                 }
                 catch (Exception ex)
