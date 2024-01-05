@@ -26,8 +26,12 @@ namespace UsersDBContext
             Database.EnsureCreated();
         }
 
+        //public DbSet<Users> users { get; set; }
+        //public DbSet<Messages> messages { get; set; }
+
         public DbSet<Users> users { get; set; }
         public DbSet<Messages> messages { get; set; }
+        public DbSet<MessageRecipients> MessageRecipients { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {

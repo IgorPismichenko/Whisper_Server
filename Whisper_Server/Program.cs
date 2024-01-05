@@ -18,8 +18,10 @@ namespace Whisper_Server
     {
         static void Main(string[] args)
         {
-            Accept(); //устанавливаем прослушивание 
+            Accept(); //устанавливаем прослушивание
+           
             ReadLine(); //Держим сервер в работающем состоянии
+            
         }
 
         private static async void Accept()
@@ -35,7 +37,7 @@ namespace Whisper_Server
                     while (true)
                     {
                         Socket handler = sListener.Accept();
-                        Receive(handler); 
+                        Receive(handler);
                     }
                 }
                 catch (Exception ex)
@@ -74,18 +76,18 @@ namespace Whisper_Server
                             using (var db = new UsersContext())
                             {
                                 var query = from b in db.users
-                                            where b.login == user.login && b.password == user.password
+                                            where b.Nickname == user.login && b.Password == user.password
                                             select b;
                                 if (query.Count() > 0)
                                 {
                                     user.command = "Accept";
                                     query = from b in db.users
-                                            where b.login != user.login
+                                            where b.Nickname != user.login
                                             select b;
                                     //user.contacts = (ObservableCollection<string>)query;
                                     WriteLine("User " + user.login + " is authorized on " + DateTime.Now.ToString());
                                 }
-                                else if(user.login == "login" || user.password == "password" || query.Count() == 0)
+                                else if (user.login == "login" || user.password == "password" || query.Count() == 0)
                                 {
                                     user.command = "Denied";
                                     WriteLine("User " + user.login + " entered incorrect data - denied " + DateTime.Now.ToString());
@@ -99,21 +101,22 @@ namespace Whisper_Server
                             using (var db = new UsersContext())
                             {
                                 var query = from b in db.users
-                                            where b.login == user.login || b.phone == user.phone
+                                            where b.Nickname == user.login || b.Phone == user.phone
                                             select b;
-                                if (query.Count() > 0 || user.login == "login" || user.password == "password" || user.phone == "phone")
+                                
+                                if (query.Count() > 0 || user.login == "login" || user.password == "password" || user.phone == "phone" )
                                 {
                                     user.command = "Exist";
                                     WriteLine("New user " + user.login + " was not registered - user info already exists" + DateTime.Now.ToString());
                                 }
                                 else
                                 {
-                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone, ip = ip.ToString()};
+                                    var User = new Users() { Nickname = user.login, Password = user.password, Phone = user.phone, Ip = ip.ToString() };
                                     db.users.Add(User);
                                     db.SaveChanges();
                                     user.command = "Accept";
                                     query = from b in db.users
-                                            where b.login != user.login
+                                            where b.Nickname != user.login
                                             select b;
                                     //user.contacts = (ObservableCollection<string>)query;
                                     WriteLine("New user " + user.login + " is registered on " + DateTime.Now.ToString());
@@ -164,5 +167,7 @@ namespace Whisper_Server
                 }
             });
         }
+
+        
     }
 }

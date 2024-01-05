@@ -6,10 +6,10 @@ using System.Threading.Tasks;
 
 namespace UsersDB
 {
-    public class Messages
+    public class MessageRecipients
     {
         public int Id { get; set; }
-        public int UserId { get; set; }
-        public string TextMessage { get; set; }
+        public int RecipientID { get; set; }
+        public int MessageID { get; set; }
     }
 }

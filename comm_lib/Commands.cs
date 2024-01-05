@@ -14,6 +14,8 @@ namespace comm_lib
         [DataMember]
         public string? phone { get; set; }
         [DataMember]
+        public string? ip { get; set; } // lev added this line
+        [DataMember]
         public string? command { get; set; }
         [DataMember]
         public string? mess { get; set; }
