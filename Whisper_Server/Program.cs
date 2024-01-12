@@ -110,43 +110,44 @@ namespace Whisper_Server
                             }
                             Responce(handler, user);
                         }
-                        else if (user.command == "Send")
-                        {
-                            WriteLine("User " + user.login + " sent message on " + DateTime.Now.ToString() + "to " + user.contact);
-                            using (var db = new UsersContext())
-                            {
-                                var query = from b in db.users
-                                            where b.login == user.contact
-                                            select b.ip;
-                                var message = new Messages() { SenderIp = ip.ToString(), ReceiverIp = query.ToString(), Message = user.mess };
-                                db.messages.Add(message);
-                                db.SaveChanges();
-                                user.contact = query.ToString();
-                            }
-                            SendToReceiver(user);   
-                        }
-                        //else if(user.command == "Search")
+                        //else if (user.command == "Send")
                         //{
-                        //    WriteLine("User " + user.login + " on " + DateTime.Now.ToString() + " requested to search for a contact in DB by phone number " + user.phone);
+                        //    WriteLine("User " + user.login + " sent message on " + DateTime.Now.ToString() + "to " + user.contact);
                         //    using (var db = new UsersContext())
                         //    {
                         //        var query = from b in db.users
-                        //                    where b.phone == user.phone
-                        //                    select b.login;
-                        //        if(query.Count() > 0)
-                        //        {
-                        //            user.command = "Match";
-                        //            user.contact = query.ToString();
-                        //            WriteLine("Match found: " + query.ToString());
-                        //        }
-                        //        else
-                        //        {
-                        //            user.command = "No match";
-                        //            WriteLine("No match found");
-                        //        }
+                        //                    where b.login == user.contact
+                        //                    select b.ip;
+                        //        var message = new Messages() { SenderIp = ip.ToString(), ReceiverIp = query.ToString(), Message = user.mess };
+                        //        db.messages.Add(message);
+                        //        db.SaveChanges();
+                        //        user.contact = query.ToString();
                         //    }
-                        //    Responce(handler, user);
+                        //    SendToReceiver(user);
                         //}
+                        else if (user.command == "Search")
+                        {
+                            WriteLine("User " + user.login + " on " + DateTime.Now.ToString() + " requested to search for a contact in DB by phone number " + user.phone);
+                            using (var db = new UsersContext())
+                            {
+                                var query = from b in db.users
+                                            where b.phone == user.phone
+                                            select b.login;
+                                if (query.Count() > 0)
+                                {
+                                    var tmp = query.FirstOrDefault();
+                                    user.command = "Match";
+                                    user.contact = tmp.ToString();
+                                    WriteLine("Match found: " + tmp.ToString());
+                                }
+                                else
+                                {
+                                    user.command = "No match";
+                                    WriteLine("No match found");
+                                }
+                            }
+                            Responce(handler, user);
+                        }
                         //else if (user.command == "Update")
                         //{
                         //    using (var db = new UsersContext())
