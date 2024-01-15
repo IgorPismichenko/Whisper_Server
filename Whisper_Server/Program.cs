@@ -5,12 +5,9 @@ using System.Runtime.Serialization.Json;
 using comm_lib;
 using UsersDB;
 using UsersDBContext;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
-using System.Diagnostics;
-using Azure;
 using System.Collections.ObjectModel;
-using System.Security.AccessControl;
-using Microsoft.EntityFrameworkCore.Metadata;
+using System.ComponentModel;
+using System.Diagnostics;
 
 namespace Whisper_Server
 {
@@ -42,7 +39,7 @@ namespace Whisper_Server
                 }
                 catch (Exception ex)
                 {
-                    WriteLine("Сервер: " + ex.Message);
+                    WriteLine("Сервер-соединение: " + ex.Message);
                 }
             });
         }
@@ -80,11 +77,7 @@ namespace Whisper_Server
                                             select b;
                                 if (query.Count() > 0)
                                 {
-                                    user.command = "Accept";
-                                    query = from b in db.users
-                                            where b.Nickname != user.login
-                                            select b;
-                                    //user.contacts = (ObservableCollection<string>)query;
+                                    user.command = "Accept";                                    
                                     WriteLine("User " + user.login + " is authorized on " + DateTime.Now.ToString());
                                 }
                                 else if (user.login == "login" || user.password == "password" || query.Count() == 0)
@@ -101,7 +94,7 @@ namespace Whisper_Server
                             using (var db = new UsersContext())
                             {
                                 var query = from b in db.users
-                                            where b.Nickname == user.login || b.Phone == user.phone
+                                            where b.login == user.login || b.phone == user.phone || b.ip == ip.ToString()
                                             select b;
                                 
                                 if (query.Count() > 0 || user.login == "login" || user.password == "password" || user.phone == "phone" )
@@ -115,10 +108,6 @@ namespace Whisper_Server
                                     db.users.Add(User);
                                     db.SaveChanges();
                                     user.command = "Accept";
-                                    query = from b in db.users
-                                            where b.Nickname != user.login
-                                            select b;
-                                    //user.contacts = (ObservableCollection<string>)query;
                                     WriteLine("New user " + user.login + " is registered on " + DateTime.Now.ToString());
                                 }
                             }
@@ -126,17 +115,57 @@ namespace Whisper_Server
                         }
                         //else if (user.command == "Send")
                         //{
-                        //    WriteLine("New user " + user.login + " sent message on " + DateTime.Now.ToString() + "to " + user.contact);
+                        //    WriteLine("User " + user.login + " sent message on " + DateTime.Now.ToString() + "to " + user.contact);
                         //    using (var db = new UsersContext())
                         //    {
                         //        var query = from b in db.users
                         //                    where b.login == user.contact
                         //                    select b.ip;
-                        //        var message = new Messages() { SenderIp = ip.ToString(), ReceiverIp = query.ToString(), Message = user.mess };
+                        //        var tmp = query.FirstOrDefault();
+                        //        var message = new Messages() { SenderIp = ip.ToString(), ReceiverIp = tmp?.ToString(), Message = user.mess };
                         //        db.messages.Add(message);
                         //        db.SaveChanges();
+                        //        user.contact = tmp?.ToString();
                         //    }
-                        //    //SendToReceiver(Socket socket); доделать!!!
+                        //    SendToReceiver(user);
+                        //}
+                        else if (user.command == "Search")
+                        {
+                            WriteLine("User " + user.login + " on " + DateTime.Now.ToString() + " requested to search for a contact in DB by phone number " + user.phone);
+                            using (var db = new UsersContext())
+                            {
+                                var query = from b in db.users
+                                            where b.phone == user.phone
+                                            select b.login;
+                                if (query.Count() > 0)
+                                {
+                                    var tmp = query.FirstOrDefault();
+                                    user.command = "Match";
+                                    user.contact = tmp?.ToString();
+                                    WriteLine("Match found: " + tmp?.ToString());
+                                }
+                                else
+                                {
+                                    user.command = "No match";
+                                    WriteLine("No match found");
+                                }
+                            }
+                            Responce(handler, user);
+                        }
+                        //else if (user.command == "Update")
+                        //{
+                        //    using (var db = new UsersContext())
+                        //    {
+                        //        var query1 = from b in db.users
+                        //                     where b.login == user.contact
+                        //                     select b.ip;
+                        //        var query = from b in db.messages
+                        //                    where (b.SenderIp == ip.ToString() && b.ReceiverIp == query1.ToString()) || (b.SenderIp == query1.ToString() && b.ReceiverIp == ip.ToString())
+                        //                    select b.Message;
+                        //        Chat chat = new Chat();
+                        //        chat.messages = (ObservableCollection<string>)query;
+                        //        UpdateResponce(handler, chat);
+                        //    }
                         //}
                     }
                 }
@@ -167,7 +196,68 @@ namespace Whisper_Server
                 }
             });
         }
-
-        
+        private static async void SendToReceiver(User user)
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    IPAddress ipAddr = IPAddress.Parse(user.contact);
+                    IPEndPoint ipEndPoint = new IPEndPoint(ipAddr, 49152);
+                    Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                    if (IsEndPointAvailable(ipEndPoint, socket))
+                    {
+                        socket.Connect(ipEndPoint);
+                        DataContractJsonSerializer jsonFormatter = null;
+                        jsonFormatter = new DataContractJsonSerializer(typeof(User));
+                        MemoryStream stream = new MemoryStream();
+                        byte[] msg = null;
+                        jsonFormatter.WriteObject(stream, user);
+                        msg = stream.ToArray();
+                        socket.Send(msg);
+                        stream.Close();
+                        socket.Shutdown(SocketShutdown.Both);
+                        socket.Close();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    WriteLine("Сервер-ответ смс: " + ex.Message);
+                }
+            });
+        }
+        private static bool IsEndPointAvailable(IPEndPoint iPEnd, Socket socket)
+        {
+            try
+            {
+                socket.Connect(iPEnd);
+                return true;
+            }
+            catch(SocketException)
+            {
+                return false;
+            }
+        }
+        //private static async void UpdateResponce(Socket socket, Chat c)
+        //{
+        //    await Task.Run(() =>
+        //    {
+        //        try
+        //        {
+        //            DataContractJsonSerializer jsonFormatter = null;
+        //            jsonFormatter = new DataContractJsonSerializer(typeof(User));
+        //            MemoryStream stream = new MemoryStream();
+        //            byte[] msg = null;
+        //            jsonFormatter.WriteObject(stream, c);
+        //            msg = stream.ToArray();
+        //            socket.Send(msg);
+        //            stream.Close();
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            WriteLine("Сервер-ответ чат: " + ex.Message);
+        //        }
+        //    });
+        //}
     }
 }
