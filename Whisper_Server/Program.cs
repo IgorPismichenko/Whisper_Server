@@ -118,10 +118,11 @@ namespace Whisper_Server
                         //        var query = from b in db.users
                         //                    where b.login == user.contact
                         //                    select b.ip;
-                        //        var message = new Messages() { SenderIp = ip.ToString(), ReceiverIp = query.ToString(), Message = user.mess };
+                        //        var tmp = query.FirstOrDefault();
+                        //        var message = new Messages() { SenderIp = ip.ToString(), ReceiverIp = tmp?.ToString(), Message = user.mess };
                         //        db.messages.Add(message);
                         //        db.SaveChanges();
-                        //        user.contact = query.ToString();
+                        //        user.contact = tmp?.ToString();
                         //    }
                         //    SendToReceiver(user);
                         //}
@@ -137,8 +138,8 @@ namespace Whisper_Server
                                 {
                                     var tmp = query.FirstOrDefault();
                                     user.command = "Match";
-                                    user.contact = tmp.ToString();
-                                    WriteLine("Match found: " + tmp.ToString());
+                                    user.contact = tmp?.ToString();
+                                    WriteLine("Match found: " + tmp?.ToString());
                                 }
                                 else
                                 {
