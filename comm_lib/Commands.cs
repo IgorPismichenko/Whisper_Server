@@ -20,15 +20,6 @@ namespace comm_lib
         [DataMember]
         public string? contact { get; set; }
         [DataMember]
-        public ObservableCollection<string>? contacts { get; set; }
-    }
-    public class Chat
-    {
-        [DataMember]
-        public ObservableCollection<string>? messages { get; set; }
-        [DataMember]
-        public string? contact { get; set; }
-        [DataMember]
-        public string? mess { get; set; }
+        public List<string>? chat { get; set; }
     }
 }

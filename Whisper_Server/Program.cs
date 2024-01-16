@@ -32,7 +32,6 @@ namespace Whisper_Server
                     while (true)
                     {
                         Socket handler = sListener.Accept();
-                        WriteLine("Accepted");
                         Receive(handler); 
                     }
                 }
@@ -150,21 +149,22 @@ namespace Whisper_Server
                             }
                             Responce(handler, user);
                         }
-                        //else if (user.command == "Update")
-                        //{
-                        //    using (var db = new UsersContext())
-                        //    {
-                        //        var query1 = from b in db.users
-                        //                     where b.login == user.contact
-                        //                     select b.ip;
-                        //        var query = from b in db.messages
-                        //                    where (b.SenderIp == ip.ToString() && b.ReceiverIp == query1.ToString()) || (b.SenderIp == query1.ToString() && b.ReceiverIp == ip.ToString())
-                        //                    select b.Message;
-                        //        Chat chat = new Chat();
-                        //        chat.messages = (ObservableCollection<string>)query;
-                        //        UpdateResponce(handler, chat);
-                        //    }
-                        //}
+                        else if (user.command == "Update")
+                        {
+                            using (var db = new UsersContext())
+                            {
+                                var query1 = from b in db.users
+                                             where b.login == user.contact
+                                             select b.ip;
+                                var temp = query1.FirstOrDefault();
+                                var query = from b in db.messages
+                                            where (b.SenderIp == ip.ToString() && b.ReceiverIp == temp) || (b.SenderIp == temp && b.ReceiverIp == ip.ToString())
+                                            select b.Message;
+                                user.chat = query.ToList();
+                                user.command = "Chat";
+                                UpdateResponce(handler, user);
+                            }
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -235,26 +235,26 @@ namespace Whisper_Server
                 return false;
             }
         }
-        //private static async void UpdateResponce(Socket socket, Chat c)
-        //{
-        //    await Task.Run(() =>
-        //    {
-        //        try
-        //        {
-        //            DataContractJsonSerializer jsonFormatter = null;
-        //            jsonFormatter = new DataContractJsonSerializer(typeof(User));
-        //            MemoryStream stream = new MemoryStream();
-        //            byte[] msg = null;
-        //            jsonFormatter.WriteObject(stream, c);
-        //            msg = stream.ToArray();
-        //            socket.Send(msg);
-        //            stream.Close();
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            WriteLine("Сервер-ответ чат: " + ex.Message);
-        //        }
-        //    });
-        //}
+        private static async void UpdateResponce(Socket socket, User user)
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    DataContractJsonSerializer jsonFormatter = null;
+                    jsonFormatter = new DataContractJsonSerializer(typeof(User));
+                    MemoryStream stream = new MemoryStream();
+                    byte[] msg = null;
+                    jsonFormatter.WriteObject(stream, user);
+                    msg = stream.ToArray();
+                    socket.Send(msg);
+                    stream.Close();
+                }
+                catch (Exception ex)
+                {
+                    WriteLine("Сервер-ответ чат: " + ex.Message);
+                }
+            });
+        }
     }
 }
