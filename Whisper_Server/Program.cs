@@ -32,6 +32,7 @@ namespace Whisper_Server
                     while (true)
                     {
                         Socket handler = sListener.Accept();
+                        WriteLine("Accepted");
                         Receive(handler); 
                     }
                 }
@@ -110,22 +111,22 @@ namespace Whisper_Server
                             }
                             Responce(handler, user);
                         }
-                        //else if (user.command == "Send")
-                        //{
-                        //    WriteLine("User " + user.login + " sent message on " + DateTime.Now.ToString() + "to " + user.contact);
-                        //    using (var db = new UsersContext())
-                        //    {
-                        //        var query = from b in db.users
-                        //                    where b.login == user.contact
-                        //                    select b.ip;
-                        //        var tmp = query.FirstOrDefault();
-                        //        var message = new Messages() { SenderIp = ip.ToString(), ReceiverIp = tmp?.ToString(), Message = user.mess };
-                        //        db.messages.Add(message);
-                        //        db.SaveChanges();
-                        //        user.contact = tmp?.ToString();
-                        //    }
-                        //    SendToReceiver(user);
-                        //}
+                        else if (user.command == "Send")
+                        {
+                            WriteLine("User " + user.login + " sent message on " + DateTime.Now.ToString() + " to " + user.contact);
+                            using (var db = new UsersContext())
+                            {
+                                var query = from b in db.users
+                                            where b.login == user.contact
+                                            select b.ip;
+                                var tmp = query.FirstOrDefault();
+                                var message = new Messages() { SenderIp = ip.ToString(), ReceiverIp = tmp?.ToString(), Message = user.mess };
+                                db.messages.Add(message);
+                                db.SaveChanges();
+                                user.contact = tmp?.ToString();
+                            }
+                            SendToReceiver(user);
+                        }
                         else if (user.command == "Search")
                         {
                             WriteLine("User " + user.login + " on " + DateTime.Now.ToString() + " requested to search for a contact in DB by phone number " + user.phone);
@@ -200,11 +201,10 @@ namespace Whisper_Server
                 try
                 {
                     IPAddress ipAddr = IPAddress.Parse(user.contact);
-                    IPEndPoint ipEndPoint = new IPEndPoint(ipAddr, 49152);
+                    IPEndPoint ipEndPoint = new IPEndPoint(ipAddr, 49153);
                     Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                     if (IsEndPointAvailable(ipEndPoint, socket))
                     {
-                        socket.Connect(ipEndPoint);
                         DataContractJsonSerializer jsonFormatter = null;
                         jsonFormatter = new DataContractJsonSerializer(typeof(User));
                         MemoryStream stream = new MemoryStream();
