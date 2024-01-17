@@ -122,9 +122,7 @@ namespace Whisper_Server
                                 var message = new Messages() { SenderIp = ip.ToString(), ReceiverIp = tmp?.ToString(), Message = user.mess };
                                 db.messages.Add(message);
                                 db.SaveChanges();
-                                user.contact = tmp?.ToString();
                             }
-                            SendToReceiver(user);
                         }
                         else if (user.command == "Search")
                         {
@@ -162,8 +160,9 @@ namespace Whisper_Server
                                             select b.Message;
                                 user.chat = query.ToList();
                                 user.command = "Chat";
-                                UpdateResponce(handler, user);
+                                
                             }
+                            Responce(handler, user);
                         }
                     }
                 }
@@ -191,68 +190,6 @@ namespace Whisper_Server
                 catch (Exception ex)
                 {
                     WriteLine("Сервер-ответ: " + ex.Message);
-                }
-            });
-        }
-        private static async void SendToReceiver(User user)
-        {
-            await Task.Run(() =>
-            {
-                try
-                {
-                    IPAddress ipAddr = IPAddress.Parse(user.contact);
-                    IPEndPoint ipEndPoint = new IPEndPoint(ipAddr, 49153);
-                    Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                    if (IsEndPointAvailable(ipEndPoint, socket))
-                    {
-                        DataContractJsonSerializer jsonFormatter = null;
-                        jsonFormatter = new DataContractJsonSerializer(typeof(User));
-                        MemoryStream stream = new MemoryStream();
-                        byte[] msg = null;
-                        jsonFormatter.WriteObject(stream, user);
-                        msg = stream.ToArray();
-                        socket.Send(msg);
-                        stream.Close();
-                        socket.Shutdown(SocketShutdown.Both);
-                        socket.Close();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    WriteLine("Сервер-ответ смс: " + ex.Message);
-                }
-            });
-        }
-        private static bool IsEndPointAvailable(IPEndPoint iPEnd, Socket socket)
-        {
-            try
-            {
-                socket.Connect(iPEnd);
-                return true;
-            }
-            catch(SocketException)
-            {
-                return false;
-            }
-        }
-        private static async void UpdateResponce(Socket socket, User user)
-        {
-            await Task.Run(() =>
-            {
-                try
-                {
-                    DataContractJsonSerializer jsonFormatter = null;
-                    jsonFormatter = new DataContractJsonSerializer(typeof(User));
-                    MemoryStream stream = new MemoryStream();
-                    byte[] msg = null;
-                    jsonFormatter.WriteObject(stream, user);
-                    msg = stream.ToArray();
-                    socket.Send(msg);
-                    stream.Close();
-                }
-                catch (Exception ex)
-                {
-                    WriteLine("Сервер-ответ чат: " + ex.Message);
                 }
             });
         }
