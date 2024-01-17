@@ -113,22 +113,22 @@ namespace Whisper_Server
                             }
                             Responce(handler, user);
                         }
-                        //else if (user.command == "Send")
-                        //{
-                        //    WriteLine("User " + user.login + " sent message on " + DateTime.Now.ToString() + "to " + user.contact);
-                        //    using (var db = new UsersContext())
-                        //    {
-                        //        var query = from b in db.users
-                        //                    where b.login == user.contact
-                        //                    select b.ip;
-                        //        var tmp = query.FirstOrDefault();
-                        //        var message = new Messages() { SenderIp = ip.ToString(), ReceiverIp = tmp?.ToString(), Message = user.mess };
-                        //        db.messages.Add(message);
-                        //        db.SaveChanges();
-                        //        user.contact = tmp?.ToString();
-                        //    }
-                        //    SendToReceiver(user);
-                        //}
+                        else if (user.command == "Send")
+                        {
+                            WriteLine("User " + user.login + " sent message on " + DateTime.Now.ToString() + " to " + user.contact);
+                            using (var db = new UsersContext())
+                            {
+                                var query = from b in db.users
+                                            where b.login == user.contact
+                                            select b.ip;
+                                var tmp = query.FirstOrDefault();
+                                var message = new Messages() { SenderIp = ip.ToString(), ReceiverIp = tmp?.ToString(), Message = user.mess };
+                                db.messages.Add(message);
+                                db.SaveChanges();
+                                user.contact = tmp?.ToString();
+                            }
+                            
+                        }
                         else if (user.command == "Search")
                         {
                             WriteLine("User " + user.login + " on " + DateTime.Now.ToString() + " requested to search for a contact in DB by phone number " + user.phone);
@@ -152,21 +152,22 @@ namespace Whisper_Server
                             }
                             Responce(handler, user);
                         }
-                        //else if (user.command == "Update")
-                        //{
-                        //    using (var db = new UsersContext())
-                        //    {
-                        //        var query1 = from b in db.users
-                        //                     where b.login == user.contact
-                        //                     select b.ip;
-                        //        var query = from b in db.messages
-                        //                    where (b.SenderIp == ip.ToString() && b.ReceiverIp == query1.ToString()) || (b.SenderIp == query1.ToString() && b.ReceiverIp == ip.ToString())
-                        //                    select b.Message;
-                        //        Chat chat = new Chat();
-                        //        chat.messages = (ObservableCollection<string>)query;
-                        //        UpdateResponce(handler, chat);
-                        //    }
-                        //}
+                        else if (user.command == "Update")
+                        {
+                            using (var db = new UsersContext())
+                            {
+                                var query1 = from b in db.users
+                                             where b.login == user.contact
+                                             select b.ip;
+                                var temp = query1.FirstOrDefault();
+                                var query = from b in db.messages
+                                            where (b.SenderIp == ip.ToString() && b.ReceiverIp == temp) || (b.SenderIp == temp && b.ReceiverIp == ip.ToString())
+                                            select b.Message;
+                                user.chat = query.ToList();
+                                user.command = "Chat";
+                                UpdateResponce(handler, user);
+                            }
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -196,36 +197,7 @@ namespace Whisper_Server
                 }
             });
         }
-        private static async void SendToReceiver(User user)
-        {
-            await Task.Run(() =>
-            {
-                try
-                {
-                    IPAddress ipAddr = IPAddress.Parse(user.contact);
-                    IPEndPoint ipEndPoint = new IPEndPoint(ipAddr, 49152);
-                    Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                    if (IsEndPointAvailable(ipEndPoint, socket))
-                    {
-                        socket.Connect(ipEndPoint);
-                        DataContractJsonSerializer jsonFormatter = null;
-                        jsonFormatter = new DataContractJsonSerializer(typeof(User));
-                        MemoryStream stream = new MemoryStream();
-                        byte[] msg = null;
-                        jsonFormatter.WriteObject(stream, user);
-                        msg = stream.ToArray();
-                        socket.Send(msg);
-                        stream.Close();
-                        socket.Shutdown(SocketShutdown.Both);
-                        socket.Close();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    WriteLine("Сервер-ответ смс: " + ex.Message);
-                }
-            });
-        }
+        
         private static bool IsEndPointAvailable(IPEndPoint iPEnd, Socket socket)
         {
             try
@@ -238,26 +210,26 @@ namespace Whisper_Server
                 return false;
             }
         }
-        //private static async void UpdateResponce(Socket socket, Chat c)
-        //{
-        //    await Task.Run(() =>
-        //    {
-        //        try
-        //        {
-        //            DataContractJsonSerializer jsonFormatter = null;
-        //            jsonFormatter = new DataContractJsonSerializer(typeof(User));
-        //            MemoryStream stream = new MemoryStream();
-        //            byte[] msg = null;
-        //            jsonFormatter.WriteObject(stream, c);
-        //            msg = stream.ToArray();
-        //            socket.Send(msg);
-        //            stream.Close();
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            WriteLine("Сервер-ответ чат: " + ex.Message);
-        //        }
-        //    });
-        //}
+        private static async void UpdateResponce(Socket socket, User user)
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    DataContractJsonSerializer jsonFormatter = null;
+                    jsonFormatter = new DataContractJsonSerializer(typeof(User));
+                    MemoryStream stream = new MemoryStream();
+                    byte[] msg = null;
+                    jsonFormatter.WriteObject(stream, user);
+                    msg = stream.ToArray();
+                    socket.Send(msg);
+                    stream.Close();
+                }
+                catch (Exception ex)
+                {
+                    WriteLine("Сервер-ответ чат: " + ex.Message);
+                }
+            });
+        }
     }
 }
