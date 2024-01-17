@@ -124,7 +124,7 @@ namespace Whisper_Server
                                 db.SaveChanges();
                                 user.contact = tmp?.ToString();
                             }
-                            SendToReceiver(user);
+                            
                         }
                         else if (user.command == "Search")
                         {
@@ -194,35 +194,7 @@ namespace Whisper_Server
                 }
             });
         }
-        private static async void SendToReceiver(User user)
-        {
-            await Task.Run(() =>
-            {
-                try
-                {
-                    IPAddress ipAddr = IPAddress.Parse(user.contact);
-                    IPEndPoint ipEndPoint = new IPEndPoint(ipAddr, 49153);
-                    Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                    if (IsEndPointAvailable(ipEndPoint, socket))
-                    {
-                        DataContractJsonSerializer jsonFormatter = null;
-                        jsonFormatter = new DataContractJsonSerializer(typeof(User));
-                        MemoryStream stream = new MemoryStream();
-                        byte[] msg = null;
-                        jsonFormatter.WriteObject(stream, user);
-                        msg = stream.ToArray();
-                        socket.Send(msg);
-                        stream.Close();
-                        socket.Shutdown(SocketShutdown.Both);
-                        socket.Close();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    WriteLine("Сервер-ответ смс: " + ex.Message);
-                }
-            });
-        }
+        
         private static bool IsEndPointAvailable(IPEndPoint iPEnd, Socket socket)
         {
             try
