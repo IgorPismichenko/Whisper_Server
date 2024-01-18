@@ -122,7 +122,7 @@ namespace Whisper_Server
                                 var query2 = from b in db.users
                                             where b.ip == ip.ToString()
                                              select b.login;
-                                var tmp2 = query.FirstOrDefault();
+                                var tmp2 = query2.FirstOrDefault();
                                 var message = new Messages() { SenderIp = ip.ToString(), ReceiverIp = tmp?.ToString(), Message = user.mess };
                                 db.messages.Add(message);
                                 db.SaveChanges();
@@ -130,7 +130,8 @@ namespace Whisper_Server
                                             where (b.SenderIp == ip.ToString() && b.ReceiverIp == tmp) || (b.SenderIp == tmp && b.ReceiverIp == ip.ToString())
                                             select b.Message;
                                 user.chat = query1.ToList();
-                                user.contact = tmp2;
+                                user.contact = tmp;
+                                user.login = tmp2;
                             }
                             SendToReceiver(user);
                         }
