@@ -119,10 +119,20 @@ namespace Whisper_Server
                                             where b.login == user.contact
                                             select b.ip;
                                 var tmp = query.FirstOrDefault();
+                                var query2 = from b in db.users
+                                            where b.ip == ip.ToString()
+                                             select b.login;
+                                var tmp2 = query.FirstOrDefault();
                                 var message = new Messages() { SenderIp = ip.ToString(), ReceiverIp = tmp?.ToString(), Message = user.mess };
                                 db.messages.Add(message);
                                 db.SaveChanges();
+                                var query1 = from b in db.messages
+                                            where (b.SenderIp == ip.ToString() && b.ReceiverIp == tmp) || (b.SenderIp == tmp && b.ReceiverIp == ip.ToString())
+                                            select b.Message;
+                                user.chat = query1.ToList();
+                                user.contact = tmp2;
                             }
+                            SendToReceiver(user);
                         }
                         else if (user.command == "Search")
                         {
@@ -192,6 +202,48 @@ namespace Whisper_Server
                     WriteLine("Сервер-ответ: " + ex.Message);
                 }
             });
+        }
+
+        private static async void SendToReceiver(User user)
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    IPAddress ipAddr = IPAddress.Parse(user.contact);
+                    IPEndPoint ipEndPoint = new IPEndPoint(ipAddr, 49153);
+                    Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                    if (IsEndPointAvailable(ipEndPoint, socket))
+                    {
+                        DataContractJsonSerializer jsonFormatter = null;
+                        jsonFormatter = new DataContractJsonSerializer(typeof(User));
+                        MemoryStream stream = new MemoryStream();
+                        byte[] msg = null;
+                        jsonFormatter.WriteObject(stream, user);
+                        msg = stream.ToArray();
+                        socket.Send(msg);
+                        stream.Close();
+                        socket.Shutdown(SocketShutdown.Both);
+                        socket.Close();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    WriteLine("Сервер-ответ смс: " + ex.Message);
+                }
+            });
+        }
+        private static bool IsEndPointAvailable(IPEndPoint iPEnd, Socket socket)
+        {
+            try
+            {
+                socket.Connect(iPEnd);
+                return true;
+            }
+            catch (SocketException)
+            {
+                return false;
+            }
         }
     }
 }
