@@ -32,7 +32,6 @@ namespace Whisper_Server
                     while (true)
                     {
                         Socket handler = sListener.Accept();
-                        WriteLine("Accepted");
                         Receive(handler); 
                     }
                 }
@@ -120,10 +119,19 @@ namespace Whisper_Server
                                             where b.login == user.contact
                                             select b.ip;
                                 var tmp = query.FirstOrDefault();
+                                var query2 = from b in db.users
+                                            where b.ip == ip.ToString()
+                                             select b.login;
+                                var tmp2 = query2.FirstOrDefault();
                                 var message = new Messages() { SenderIp = ip.ToString(), ReceiverIp = tmp?.ToString(), Message = user.mess };
                                 db.messages.Add(message);
                                 db.SaveChanges();
-                                user.contact = tmp?.ToString();
+                                var query1 = from b in db.messages
+                                            where (b.SenderIp == ip.ToString() && b.ReceiverIp == tmp) || (b.SenderIp == tmp && b.ReceiverIp == ip.ToString())
+                                            select b.Message;
+                                user.chat = query1.ToList();
+                                user.contact = tmp;
+                                user.login = tmp2;
                             }
                             SendToReceiver(user);
                         }
@@ -150,21 +158,23 @@ namespace Whisper_Server
                             }
                             Responce(handler, user);
                         }
-                        //else if (user.command == "Update")
-                        //{
-                        //    using (var db = new UsersContext())
-                        //    {
-                        //        var query1 = from b in db.users
-                        //                     where b.login == user.contact
-                        //                     select b.ip;
-                        //        var query = from b in db.messages
-                        //                    where (b.SenderIp == ip.ToString() && b.ReceiverIp == query1.ToString()) || (b.SenderIp == query1.ToString() && b.ReceiverIp == ip.ToString())
-                        //                    select b.Message;
-                        //        Chat chat = new Chat();
-                        //        chat.messages = (ObservableCollection<string>)query;
-                        //        UpdateResponce(handler, chat);
-                        //    }
-                        //}
+                        else if (user.command == "Update")
+                        {
+                            using (var db = new UsersContext())
+                            {
+                                var query1 = from b in db.users
+                                             where b.login == user.contact
+                                             select b.ip;
+                                var temp = query1.FirstOrDefault();
+                                var query = from b in db.messages
+                                            where (b.SenderIp == ip.ToString() && b.ReceiverIp == temp) || (b.SenderIp == temp && b.ReceiverIp == ip.ToString())
+                                            select b.Message;
+                                user.chat = query.ToList();
+                                user.command = "Chat";
+                                
+                            }
+                            Responce(handler, user);
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -194,6 +204,7 @@ namespace Whisper_Server
                 }
             });
         }
+
         private static async void SendToReceiver(User user)
         {
             await Task.Run(() =>
@@ -230,31 +241,10 @@ namespace Whisper_Server
                 socket.Connect(iPEnd);
                 return true;
             }
-            catch(SocketException)
+            catch (SocketException)
             {
                 return false;
             }
         }
-        //private static async void UpdateResponce(Socket socket, Chat c)
-        //{
-        //    await Task.Run(() =>
-        //    {
-        //        try
-        //        {
-        //            DataContractJsonSerializer jsonFormatter = null;
-        //            jsonFormatter = new DataContractJsonSerializer(typeof(User));
-        //            MemoryStream stream = new MemoryStream();
-        //            byte[] msg = null;
-        //            jsonFormatter.WriteObject(stream, c);
-        //            msg = stream.ToArray();
-        //            socket.Send(msg);
-        //            stream.Close();
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            WriteLine("Сервер-ответ чат: " + ex.Message);
-        //        }
-        //    });
-        //}
     }
 }
