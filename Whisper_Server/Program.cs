@@ -8,6 +8,7 @@ using UsersDBContext;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Drawing;
 
 namespace Whisper_Server
 {
@@ -50,7 +51,7 @@ namespace Whisper_Server
                     User user = new User();
                     DataContractJsonSerializer jsonFormatter = null;
                     jsonFormatter = new DataContractJsonSerializer(typeof(User));
-                    byte[] bytes = new byte[1024];
+                    byte[] bytes = new byte[10000000];
                     int bytesRec = 0;
                     while (true)
                     {
@@ -101,7 +102,7 @@ namespace Whisper_Server
                                 }
                                 else
                                 {
-                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone, ip = ip.ToString()};
+                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone, ip = ip.ToString(), avatar = user.avatar};
                                     db.users.Add(User);
                                     db.SaveChanges();
                                     user.command = "Accept";
@@ -142,13 +143,15 @@ namespace Whisper_Server
                             {
                                 var query = from b in db.users
                                             where b.phone == user.phone
-                                            select b.login;
+                                            select b;
                                 if (query.Count() > 0)
                                 {
+                                    
                                     var tmp = query.FirstOrDefault();
                                     user.command = "Match";
-                                    user.contact = tmp?.ToString();
-                                    WriteLine("Match found: " + tmp?.ToString());
+                                    user.contact = tmp?.login;
+                                    user.avatar = tmp.avatar;
+                                    WriteLine("Match found: " + tmp?.login);
                                 }
                                 else
                                 {
@@ -172,6 +175,47 @@ namespace Whisper_Server
                                 user.chat = query.ToList();
                                 user.command = "Chat";
                                 
+                            }
+                            Responce(handler, user);
+                        }
+                        else if(user.command == "ChangeProfile")
+                        {
+                            using(var db = new UsersContext())
+                            {
+                                var query = from b in db.users
+                                            where b.ip == ip.ToString()
+                                            select b;
+                                var data = query.FirstOrDefault();
+                                user.login = data?.login;
+                                user.password = data?.password;
+                                user.phone = data?.phone;
+                                user.command = "CurrentProfile";
+                            }
+                            Responce(handler, user);
+                        }
+                        else if (user.command == "Profile")
+                        {
+                            using (var db = new UsersContext())
+                            {
+                                var query = from b in db.users
+                                            where b.ip == ip.ToString()
+                                            select b.Id;
+                                var id = query.FirstOrDefault();
+                                var toUpdate = db.users.Find(id);
+                                if(toUpdate != null)
+                                {
+                                    toUpdate.login = user.login;
+                                    toUpdate.password = user.passwordNew;
+                                    toUpdate.phone = user.phone;
+                                    toUpdate.avatar = user.avatar;
+                                    db.SaveChanges();
+                                    user.command = "ProfileSaved";
+                                }
+                                else
+                                {
+                                    user.command = "ProfileNotSaved";
+                                }
+
                             }
                             Responce(handler, user);
                         }
