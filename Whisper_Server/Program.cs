@@ -76,10 +76,10 @@ namespace Whisper_Server
                                             select b;
                                 if (query.Count() > 0)
                                 {
-                                    user.command = "Accept";                                    
+                                    user.command = "Accept";
                                     WriteLine("User " + user.login + " is authorized on " + DateTime.Now.ToString());
                                 }
-                                else if(user.login == "login" || user.password == "password" || query.Count() == 0)
+                                else if (user.login == "login" || user.password == "password" || query.Count() == 0)
                                 {
                                     user.command = "Denied";
                                     WriteLine("User " + user.login + " entered incorrect data - denied " + DateTime.Now.ToString());
@@ -102,7 +102,7 @@ namespace Whisper_Server
                                 }
                                 else
                                 {
-                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone, ip = ip.ToString(), avatar = user.avatar};
+                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone, ip = ip.ToString(), avatar = user.avatar };
                                     db.users.Add(User);
                                     db.SaveChanges();
                                     user.command = "Accept";
@@ -121,15 +121,15 @@ namespace Whisper_Server
                                             select b.ip;
                                 var tmp = query.FirstOrDefault();
                                 var query2 = from b in db.users
-                                            where b.ip == ip.ToString()
+                                             where b.ip == ip.ToString()
                                              select b.login;
                                 var tmp2 = query2.FirstOrDefault();
                                 var message = new Messages() { SenderIp = ip.ToString(), ReceiverIp = tmp?.ToString(), Message = user.mess };
                                 db.messages.Add(message);
                                 db.SaveChanges();
                                 var query1 = from b in db.messages
-                                            where (b.SenderIp == ip.ToString() && b.ReceiverIp == tmp) || (b.SenderIp == tmp && b.ReceiverIp == ip.ToString())
-                                            select b.Message;
+                                             where (b.SenderIp == ip.ToString() && b.ReceiverIp == tmp) || (b.SenderIp == tmp && b.ReceiverIp == ip.ToString())
+                                             select b.Message;
                                 user.chat = query1.ToList();
                                 user.contact = tmp;
                                 user.login = tmp2;
@@ -146,7 +146,7 @@ namespace Whisper_Server
                                             select b;
                                 if (query.Count() > 0)
                                 {
-                                    
+
                                     var tmp = query.FirstOrDefault();
                                     user.command = "Match";
                                     user.contact = tmp?.login;
@@ -174,13 +174,13 @@ namespace Whisper_Server
                                             select b.Message;
                                 user.chat = query.ToList();
                                 user.command = "Chat";
-                                
+
                             }
                             Responce(handler, user);
                         }
-                        else if(user.command == "ChangeProfile")
+                        else if (user.command == "ChangeProfile")
                         {
-                            using(var db = new UsersContext())
+                            using (var db = new UsersContext())
                             {
                                 var query = from b in db.users
                                             where b.ip == ip.ToString()
@@ -202,7 +202,7 @@ namespace Whisper_Server
                                             select b.Id;
                                 var id = query.FirstOrDefault();
                                 var toUpdate = db.users.Find(id);
-                                if(toUpdate != null)
+                                if (toUpdate != null)
                                 {
                                     toUpdate.login = user.login;
                                     toUpdate.password = user.passwordNew;
@@ -215,9 +215,29 @@ namespace Whisper_Server
                                 {
                                     user.command = "ProfileNotSaved";
                                 }
-
                             }
                             Responce(handler, user);
+                        }
+                        else if (user.command == "DeleteProfile")
+                        {
+                            using (var db = new UsersContext())
+                            {
+                                var query = from b in db.users
+                                            where b.ip == ip.ToString()
+                                            select b.Id;
+                                var id = query.FirstOrDefault();
+                                var toUpdate = db.users.Find(id);
+                                if (toUpdate != null)
+                                {
+                                    db.users.Remove(toUpdate);
+                                    db.SaveChanges();
+                                    user.command = "ProfileDeleted";
+                                }
+                                else
+                                {
+                                    user.command = "ProfileNotDeleted";
+                                }
+                            }
                         }
                     }
                 }
