@@ -74,9 +74,11 @@ namespace Whisper_Server
                                 var query = from b in db.users
                                             where b.login == user.login && b.password == user.password
                                             select b;
+                                var tmp = query.FirstOrDefault();
                                 if (query.Count() > 0)
                                 {
-                                    user.command = "Accept";
+                                    user.command = "AcceptLog";
+                                    user.avatar = tmp.avatar;
                                     WriteLine("User " + user.login + " is authorized on " + DateTime.Now.ToString());
                                 }
                                 else if (user.login == "login" || user.password == "password" || query.Count() == 0)
@@ -102,7 +104,7 @@ namespace Whisper_Server
                                 }
                                 else
                                 {
-                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone, ip = ip.ToString(), avatar = user.avatar };
+                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone, ip = ip.ToString()};
                                     db.users.Add(User);
                                     db.SaveChanges();
                                     user.command = "Accept";
@@ -174,7 +176,6 @@ namespace Whisper_Server
                                             select b.Message;
                                 user.chat = query.ToList();
                                 user.command = "Chat";
-
                             }
                             Responce(handler, user);
                         }
@@ -205,15 +206,17 @@ namespace Whisper_Server
                                 if (toUpdate != null)
                                 {
                                     toUpdate.login = user.login;
-                                    toUpdate.password = user.passwordNew;
+                                    toUpdate.password = user.password;
                                     toUpdate.phone = user.phone;
                                     toUpdate.avatar = user.avatar;
                                     db.SaveChanges();
                                     user.command = "ProfileSaved";
+                                    WriteLine("User " + user.login + " changed his profile on " + DateTime.Now.ToString());
                                 }
                                 else
                                 {
                                     user.command = "ProfileNotSaved";
+                                    WriteLine("User " + user.login + " changing profile failed on " + DateTime.Now.ToString());
                                 }
                             }
                             Responce(handler, user);
@@ -232,12 +235,15 @@ namespace Whisper_Server
                                     db.users.Remove(toUpdate);
                                     db.SaveChanges();
                                     user.command = "ProfileDeleted";
+                                    WriteLine("User " + user.login + " deleted his profile on " + DateTime.Now.ToString());
                                 }
                                 else
                                 {
                                     user.command = "ProfileNotDeleted";
+                                    WriteLine("User " + user.login + " deleting profile failed on " + DateTime.Now.ToString());
                                 }
                             }
+                            Responce(handler, user);
                         }
                     }
                 }

@@ -13,8 +13,6 @@ namespace comm_lib
         [DataMember]
         public string? password { get; set; }
         [DataMember]
-        public string? passwordNew { get; set; }
-        [DataMember]
         public string? phone { get; set; }
         [DataMember]
         public string? command { get; set; }
