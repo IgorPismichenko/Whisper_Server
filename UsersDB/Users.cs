@@ -8,5 +8,6 @@
         public string? phone { get; set; }
         public string? ip { get; set; }
         public byte[]? avatar { get; set; }
+        public bool isInContactList { get; set; }
     }
 }
