@@ -79,6 +79,7 @@ namespace Whisper_Server
                                 {
                                     user.command = "AcceptLog";
                                     user.avatar = tmp.avatar;
+                                    user.phone = tmp.phone;
                                     WriteLine("User " + user.login + " is authorized on " + DateTime.Now.ToString());
                                 }
                                 else if (user.login == "login" || user.password == "password" || query.Count() == 0)
