@@ -79,19 +79,6 @@ namespace Whisper_Server
                                 {
                                     user.command = "AcceptLog";
                                     user.avatar = tmp.avatar;
-                                    var query1 = from b in db.users
-                                                 where b.isInContactList == true
-                                                 select b;
-                                    if (query1.Count() > 0)
-                                    {
-                                        foreach (var el in query1)
-                                        {
-                                            User u = new User();
-                                            u.login = el.login;
-                                            u.avatar = el.avatar;
-                                            user.contactList.Add(u);
-                                        }
-                                    }
                                     WriteLine("User " + user.login + " is authorized on " + DateTime.Now.ToString());
                                 }
                                 else if (user.login == "login" || user.password == "password" || query.Count() == 0)
@@ -117,7 +104,7 @@ namespace Whisper_Server
                                 }
                                 else
                                 {
-                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone, ip = ip.ToString(),avatar = user.avatar, isInContactList = false};
+                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone, ip = ip.ToString(),avatar = user.avatar};
                                     db.users.Add(User);
                                     db.SaveChanges();
                                     user.command = "Accept";
@@ -162,9 +149,6 @@ namespace Whisper_Server
                                 if (query.Count() > 0)
                                 {
                                     var tmp = query.FirstOrDefault();
-                                    var updateBool = db.users.Find(tmp?.Id);
-                                    updateBool.isInContactList = true;
-                                    db.SaveChanges();
                                     user.command = "Match";
                                     user.contact = tmp?.login;
                                     user.avatar = tmp.avatar;

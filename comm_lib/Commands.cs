@@ -24,7 +24,5 @@ namespace comm_lib
         public List<string>? chat { get; set; }
         [DataMember]
         public byte[] avatar { get; set; }
-        [DataMember]
-        public List<User>? contactList { get; set; }
     }
 }
