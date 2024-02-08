@@ -136,6 +136,7 @@ namespace Whisper_Server
                                 user.chat = query1.ToList();
                                 user.contact = tmp;
                                 user.login = tmp2;
+                                user.command = "SendingMessage";
                             }
                             SendToReceiver(user);
                         }
@@ -153,6 +154,7 @@ namespace Whisper_Server
                                     user.command = "Match";
                                     user.contact = tmp?.login;
                                     user.avatar = tmp.avatar;
+                                    user.phone = tmp.phone;
                                     WriteLine("Match found: " + tmp?.login);
                                 }
                                 else
