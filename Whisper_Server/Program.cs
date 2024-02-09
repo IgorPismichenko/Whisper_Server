@@ -14,8 +14,10 @@ namespace Whisper_Server
 {
     class Program
     {
+        static Socket socket;
         static void Main(string[] args)
         {
+            socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             Accept(); //устанавливаем прослушивание 
             ReadLine(); //Держим сервер в работающем состоянии
         }
@@ -198,6 +200,7 @@ namespace Whisper_Server
                         }
                         else if (user.command == "Profile")
                         {
+                            User u = new User();
                             using (var db = new UsersContext())
                             {
                                 var query = from b in db.users
@@ -207,6 +210,7 @@ namespace Whisper_Server
                                 var toUpdate = db.users.Find(id);
                                 if (toUpdate != null)
                                 {
+                                    u.mess = toUpdate.login;
                                     toUpdate.login = user.login;
                                     toUpdate.password = user.password;
                                     toUpdate.phone = user.phone;
@@ -222,6 +226,7 @@ namespace Whisper_Server
                                 }
                             }
                             Responce(handler, user);
+                            SendNewProfile(u, ip);
                         }
                         else if (user.command == "DeleteProfile")
                         {
@@ -285,7 +290,6 @@ namespace Whisper_Server
                 {
                     IPAddress ipAddr = IPAddress.Parse(user.contact);
                     IPEndPoint ipEndPoint = new IPEndPoint(ipAddr, 49153);
-                    Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                     if (IsEndPointAvailable(ipEndPoint, socket))
                     {
                         DataContractJsonSerializer jsonFormatter = null;
@@ -296,8 +300,6 @@ namespace Whisper_Server
                         msg = stream.ToArray();
                         socket.Send(msg);
                         stream.Close();
-                        socket.Shutdown(SocketShutdown.Both);
-                        socket.Close();
                     }
                 }
                 catch (Exception ex)
@@ -317,6 +319,73 @@ namespace Whisper_Server
             {
                 return false;
             }
+        }
+
+        private static void SendNewProfile(User user, IPAddress ip)
+        {
+            try
+            {
+                using (var db = new UsersContext())
+                {
+                    var query = (from b in db.messages
+                                 where b.SenderIp == ip.ToString()
+                                 select b.ReceiverIp)
+                                .Distinct();
+                    List<string> ips = new List<string>();
+                    ips = query.ToList();
+                    var query1 = from c in db.users
+                                 where c.ip == ip.ToString()
+                                 select c;
+                    var tmp = query1.FirstOrDefault();
+                    user.login = tmp.login;
+                    user.avatar = tmp.avatar;
+                    user.contact = tmp.ip;
+                    user.command = "ContactProfileChanged";
+                    bool resp = false;
+                    foreach (var q in ips)
+                    {
+                        SendToReceiver(user);
+                        CatchResponce(resp);
+                        if (resp == true)
+                            continue;
+                        else
+                            continue;
+                    }
+                }
+            }
+            catch(Exception ex)
+            {
+                WriteLine("Сервер-ответ рассылка профиля: " + ex.Message);
+            }
+        }
+
+        private static async void CatchResponce(bool b)
+        {
+            await Task.Run(() =>
+            {
+                DataContractJsonSerializer jsonFormatter = null;
+                jsonFormatter = new DataContractJsonSerializer(typeof(string));
+                byte[] bytes = new byte[1024];
+                int bytesRec = 0;
+                while (true)
+                {
+                    bytesRec = socket.Receive(bytes);
+                    IPAddress ip = ((IPEndPoint)socket.RemoteEndPoint).Address;
+                    if (bytesRec == 0)
+                    {
+                        socket.Shutdown(SocketShutdown.Both);
+                        socket.Close();
+                        return;
+                    }
+                    MemoryStream stream = new MemoryStream(bytes, 0, bytesRec);
+                    string str = (string)jsonFormatter.ReadObject(stream);
+                    stream.Close();
+                    if (str == "plus")
+                        b = true;
+                    else
+                        b = false;
+                }
+            });
         }
     }
 }
