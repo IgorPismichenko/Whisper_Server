@@ -9,15 +9,16 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
+using Microsoft.EntityFrameworkCore.Storage.Internal;
 
 namespace Whisper_Server
 {
     class Program
     {
-        static Socket socket;
+        //static Socket socket;
         static void Main(string[] args)
         {
-            socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            //socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             Accept(); //устанавливаем прослушивание 
             ReadLine(); //Держим сервер в работающем состоянии
         }
@@ -82,6 +83,7 @@ namespace Whisper_Server
                                     user.command = "AcceptLog";
                                     user.avatar = tmp.avatar;
                                     user.phone = tmp.phone;
+                                    user.profile = GetContactList(ip);
                                     WriteLine("User " + user.login + " is authorized on " + DateTime.Now.ToString());
                                 }
                                 else if (user.login == "login" || user.password == "password" || query.Count() == 0)
@@ -201,6 +203,7 @@ namespace Whisper_Server
                         else if (user.command == "Profile")
                         {
                             User u = new User();
+                            string tmp = null;
                             using (var db = new UsersContext())
                             {
                                 var query = from b in db.users
@@ -210,7 +213,7 @@ namespace Whisper_Server
                                 var toUpdate = db.users.Find(id);
                                 if (toUpdate != null)
                                 {
-                                    u.mess = toUpdate.login;
+                                    tmp = toUpdate.login;
                                     toUpdate.login = user.login;
                                     toUpdate.password = user.password;
                                     toUpdate.phone = user.phone;
@@ -226,7 +229,9 @@ namespace Whisper_Server
                                 }
                             }
                             Responce(handler, user);
-                            SendNewProfile(u, ip);
+                            u = SendChangedProfile(ip);
+                            u.mess = tmp;
+                            SendToReceiver(u);
                         }
                         else if (user.command == "DeleteProfile")
                         {
@@ -288,6 +293,7 @@ namespace Whisper_Server
             {
                 try
                 {
+                    Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                     IPAddress ipAddr = IPAddress.Parse(user.contact);
                     IPEndPoint ipEndPoint = new IPEndPoint(ipAddr, 49153);
                     if (IsEndPointAvailable(ipEndPoint, socket))
@@ -300,6 +306,9 @@ namespace Whisper_Server
                         msg = stream.ToArray();
                         socket.Send(msg);
                         stream.Close();
+                        socket.Shutdown(SocketShutdown.Both);
+                        socket.Close();
+                        //GetProfileRequest();
                     }
                 }
                 catch (Exception ex)
@@ -321,71 +330,95 @@ namespace Whisper_Server
             }
         }
 
-        private static void SendNewProfile(User user, IPAddress ip)
+        private static User SendChangedProfile(IPAddress ip)
         {
-            try
-            {
+            //try
+            //{
+                User u = new User();
                 using (var db = new UsersContext())
                 {
                     var query = (from b in db.messages
                                  where b.SenderIp == ip.ToString()
                                  select b.ReceiverIp)
                                 .Distinct();
-                    List<string> ips = new List<string>();
-                    ips = query.ToList();
-                    var query1 = from c in db.users
-                                 where c.ip == ip.ToString()
-                                 select c;
+                    var ipArr = query.FirstOrDefault();
+                    var query1 = from b in db.users
+                                 where b.ip == ip.ToString()
+                                 select b;
                     var tmp = query1.FirstOrDefault();
-                    user.login = tmp.login;
-                    user.avatar = tmp.avatar;
-                    user.contact = tmp.ip;
-                    user.command = "ContactProfileChanged";
-                    bool resp = false;
-                    foreach (var q in ips)
-                    {
-                        SendToReceiver(user);
-                        CatchResponce(resp);
-                        if (resp == true)
-                            continue;
-                        else
-                            continue;
-                    }
+                    u.login = tmp.login;
+                    u.avatar = tmp.avatar;
+                    u.command = "ContactProfileChanged";
+                    u.contact = ipArr;
                 }
-            }
-            catch(Exception ex)
+                return u;
+            //}
+            //catch(Exception ex)
+            //{
+            //    WriteLine("Отправка рассылки" + ex.Message);
+            //}
+        }
+
+        private static List<Profile> GetContactList(IPAddress ip)
+        {
+            using (var db = new UsersContext())
             {
-                WriteLine("Сервер-ответ рассылка профиля: " + ex.Message);
+                var query = (from b in db.messages
+                             where b.SenderIp == ip.ToString()
+                             select b.ReceiverIp)
+                                .Distinct();
+                var ipArr = query.ToArray();
+                List<Profile> list = new List<Profile>();
+                if (ipArr.Length > 0)
+                {
+                    foreach (var o in ipArr)
+                    {
+                        var query1 = from b in db.users
+                                     where b.ip == o
+                                     select b;
+                        var tmp = query1.FirstOrDefault();
+                        Profile profile = new Profile();
+                        profile.login = tmp.login;
+                        profile.avatar = tmp.avatar;
+                        profile.phone = tmp.phone;
+                        list.Add(profile);
+                    }
+                    return list;
+                }
+                else
+                    return list;
             }
         }
 
-        private static async void CatchResponce(bool b)
-        {
-            await Task.Run(() =>
-            {
-                DataContractJsonSerializer jsonFormatter = null;
-                jsonFormatter = new DataContractJsonSerializer(typeof(string));
-                byte[] bytes = new byte[1024];
-                int bytesRec = 0;
-                while (true)
-                {
-                    bytesRec = socket.Receive(bytes);
-                    IPAddress ip = ((IPEndPoint)socket.RemoteEndPoint).Address;
-                    if (bytesRec == 0)
-                    {
-                        socket.Shutdown(SocketShutdown.Both);
-                        socket.Close();
-                        return;
-                    }
-                    MemoryStream stream = new MemoryStream(bytes, 0, bytesRec);
-                    string str = (string)jsonFormatter.ReadObject(stream);
-                    stream.Close();
-                    if (str == "plus")
-                        b = true;
-                    else
-                        b = false;
-                }
-            });
-        }
+        //private static async void GetProfileRequest()
+        //{
+        //    await Task.Run(() =>
+        //    {
+        //        try
+        //        {
+        //            byte[] bytes = new byte[1024];
+        //            int bytesRec = 0;
+        //            while (true)
+        //            {
+        //                bytesRec = socket.Receive(bytes);
+        //                if (bytesRec == 0)
+        //                {
+        //                    socket.Shutdown(SocketShutdown.Both);
+        //                    socket.Close();
+        //                    return;
+        //                }
+        //                MemoryStream stream = new MemoryStream(bytes, 0, bytesRec);
+        //                DataContractJsonSerializer jsonFormatter = null;
+        //                jsonFormatter = new DataContractJsonSerializer(typeof(string));
+        //                var str = (string)jsonFormatter.ReadObject(stream);
+        //                stream.Close();
+        //            }
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            WriteLine("Получение рассылки" + ex.Message);
+        //        }
+        //    });
+        //}
     }
 }

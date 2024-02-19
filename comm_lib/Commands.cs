@@ -23,6 +23,19 @@ namespace comm_lib
         [DataMember]
         public List<string>? chat { get; set; }
         [DataMember]
-        public byte[] avatar { get; set; }
+        public byte[]? avatar { get; set; }
+        [DataMember]
+        public List<Profile>? profile { get; set; }
+    }
+
+    [DataContract]
+    public class Profile
+    {
+        [DataMember]
+        public string? login { get; set; }
+        [DataMember]
+        public byte[]? avatar { get; set; }
+        [DataMember]
+        public string? phone { get; set; }
     }
 }
