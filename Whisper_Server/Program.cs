@@ -31,6 +31,8 @@ namespace Whisper_Server
                 {
                     IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Any, 49152);
                     Socket sListener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                    sListener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveBuffer, 10000000);
+                    sListener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.SendBuffer, 10000000);
                     sListener.Bind(ipEndPoint);
                     sListener.Listen();
                     while (true)
@@ -217,7 +219,11 @@ namespace Whisper_Server
                                     toUpdate.login = user.login;
                                     toUpdate.password = user.password;
                                     toUpdate.phone = user.phone;
-                                    toUpdate.avatar = user.avatar;
+                                    if (user.avatar != null)
+                                    {
+                                        toUpdate.avatar = user.avatar;
+                                    }
+                                    toUpdate.ip = ip.ToString();
                                     db.SaveChanges();
                                     user.command = "ProfileSaved";
                                     WriteLine("User " + user.login + " changed his profile on " + DateTime.Now.ToString());
@@ -294,6 +300,8 @@ namespace Whisper_Server
                 try
                 {
                     Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                    socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveBuffer, 10000000);
+                    socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.SendBuffer, 10000000);
                     IPAddress ipAddr = IPAddress.Parse(user.contact);
                     IPEndPoint ipEndPoint = new IPEndPoint(ipAddr, 49153);
                     if (IsEndPointAvailable(ipEndPoint, socket))
