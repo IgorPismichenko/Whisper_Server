@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace UsersDB
+namespace Whisper_Server.DbContexts
 {
     public class Messages
     {

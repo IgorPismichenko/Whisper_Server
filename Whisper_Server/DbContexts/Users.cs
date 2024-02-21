@@ -1,4 +1,4 @@
-﻿namespace UsersDB
+﻿namespace Whisper_Server.DbContexts
 {
     public class Users
     {

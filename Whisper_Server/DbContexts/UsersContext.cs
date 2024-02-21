@@ -1,8 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using UsersDB;
 
-namespace UsersDBContext
+namespace Whisper_Server.DbContexts
 {
     public class UsersContext: DbContext
     {

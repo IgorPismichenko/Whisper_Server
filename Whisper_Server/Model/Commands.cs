@@ -3,7 +3,8 @@ using System.Drawing;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 
-namespace comm_lib
+namespace Whisper_Server.Model
+
 {
     [DataContract]
     public class User

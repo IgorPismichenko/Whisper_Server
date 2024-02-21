@@ -16,12 +16,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\comm_lib\comm_lib.csproj" />
-    <ProjectReference Include="..\UsersDBContext\UsersDBContext.csproj" />
-    <ProjectReference Include="..\UsersDB\UsersDB.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

@@ -2,9 +2,8 @@
 using System.Net;
 using static System.Console;
 using System.Runtime.Serialization.Json;
-using comm_lib;
-using UsersDB;
-using UsersDBContext;
+using Whisper_Server.Model;
+using Whisper_Server.DbContexts;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -38,7 +37,7 @@ namespace Whisper_Server
                     while (true)
                     {
                         Socket handler = sListener.Accept();
-                        Receive(handler); 
+                        Receive(handler);
                     }
                 }
                 catch (Exception ex)
@@ -111,7 +110,7 @@ namespace Whisper_Server
                                 }
                                 else
                                 {
-                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone, ip = ip.ToString(),avatar = user.avatar};
+                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone, ip = ip.ToString(), avatar = user.avatar };
                                     db.users.Add(User);
                                     db.SaveChanges();
                                     user.command = "Accept";
@@ -126,6 +125,7 @@ namespace Whisper_Server
                             using (var db = new UsersContext())
                             {
                                 var query = from b in db.users
+                                            where b.login == user.contact
                                             where b.login == user.contact
                                             select b.ip;
                                 var tmp = query.FirstOrDefault();
@@ -340,31 +340,24 @@ namespace Whisper_Server
 
         private static User SendChangedProfile(IPAddress ip)
         {
-            //try
-            //{
-                User u = new User();
-                using (var db = new UsersContext())
-                {
-                    var query = (from b in db.messages
-                                 where b.SenderIp == ip.ToString()
-                                 select b.ReceiverIp)
-                                .Distinct();
-                    var ipArr = query.FirstOrDefault();
-                    var query1 = from b in db.users
-                                 where b.ip == ip.ToString()
-                                 select b;
-                    var tmp = query1.FirstOrDefault();
-                    u.login = tmp.login;
-                    u.avatar = tmp.avatar;
-                    u.command = "ContactProfileChanged";
-                    u.contact = ipArr;
-                }
-                return u;
-            //}
-            //catch(Exception ex)
-            //{
-            //    WriteLine("Отправка рассылки" + ex.Message);
-            //}
+            User u = new User();
+            using (var db = new UsersContext())
+            {
+                var query = (from b in db.messages
+                             where b.SenderIp == ip.ToString()
+                             select b.ReceiverIp)
+                            .Distinct();
+                var ipArr = query.FirstOrDefault();
+                var query1 = from b in db.users
+                             where b.ip == ip.ToString()
+                             select b;
+                var tmp = query1.FirstOrDefault();
+                u.login = tmp.login;
+                u.avatar = tmp.avatar;
+                u.command = "ContactProfileChanged";
+                u.contact = ipArr;
+            }
+            return u;
         }
 
         private static List<Profile> GetContactList(IPAddress ip)
