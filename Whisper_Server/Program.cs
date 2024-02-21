@@ -8,15 +8,19 @@ using UsersDBContext;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Drawing;
+using Microsoft.EntityFrameworkCore.Storage.Internal;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace Whisper_Server
 {
     class Program
     {
+        //static Socket socket;
         static void Main(string[] args)
         {
-            Accept(); //устанавливаем прослушивание
-           
+            //socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            Accept(); //устанавливаем прослушивание 
             ReadLine(); //Держим сервер в работающем состоянии
             
         }
@@ -29,6 +33,8 @@ namespace Whisper_Server
                 {
                     IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Any, 49152);
                     Socket sListener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                    sListener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveBuffer, 10000000);
+                    sListener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.SendBuffer, 10000000);
                     sListener.Bind(ipEndPoint);
                     sListener.Listen();
                     while (true)
@@ -52,7 +58,7 @@ namespace Whisper_Server
                     User user = new User();
                     DataContractJsonSerializer jsonFormatter = null;
                     jsonFormatter = new DataContractJsonSerializer(typeof(User));
-                    byte[] bytes = new byte[1024];
+                    byte[] bytes = new byte[10000000];
                     int bytesRec = 0;
                     while (true)
                     {
@@ -75,9 +81,13 @@ namespace Whisper_Server
                                 var query = from b in db.users
                                             where b.Nickname == user.login && b.Password == user.password
                                             select b;
+                                var tmp = query.FirstOrDefault();
                                 if (query.Count() > 0)
                                 {
-                                    user.command = "Accept";                                    
+                                    user.command = "AcceptLog";
+                                    user.avatar = tmp.avatar;
+                                    user.phone = tmp.phone;
+                                    user.profile = GetContactList(ip);
                                     WriteLine("User " + user.login + " is authorized on " + DateTime.Now.ToString());
                                 }
                                 else if (user.login == "login" || user.password == "password" || query.Count() == 0)
@@ -104,7 +114,7 @@ namespace Whisper_Server
                                 }
                                 else
                                 {
-                                    var User = new Users() { Nickname = user.login, Password = user.password, Phone = user.phone, Ip = ip.ToString() };
+                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone, ip = ip.ToString(),avatar = user.avatar};
                                     db.users.Add(User);
                                     db.SaveChanges();
                                     user.command = "Accept";
@@ -122,10 +132,20 @@ namespace Whisper_Server
                                             where b.login == user.contact
                                             select b.ip;
                                 var tmp = query.FirstOrDefault();
+                                var query2 = from b in db.users
+                                             where b.ip == ip.ToString()
+                                             select b.login;
+                                var tmp2 = query2.FirstOrDefault();
                                 var message = new Messages() { SenderIp = ip.ToString(), ReceiverIp = tmp?.ToString(), Message = user.mess };
                                 db.messages.Add(message);
                                 db.SaveChanges();
-                                user.contact = tmp?.ToString();
+                                var query1 = from b in db.messages
+                                             where (b.SenderIp == ip.ToString() && b.ReceiverIp == tmp) || (b.SenderIp == tmp && b.ReceiverIp == ip.ToString())
+                                             select b.Message;
+                                user.chat = query1.ToList();
+                                user.contact = tmp;
+                                user.login = tmp2;
+                                user.command = "SendingMessage";
                             }
                             
                         }
@@ -136,13 +156,15 @@ namespace Whisper_Server
                             {
                                 var query = from b in db.users
                                             where b.phone == user.phone
-                                            select b.login;
+                                            select b;
                                 if (query.Count() > 0)
                                 {
                                     var tmp = query.FirstOrDefault();
                                     user.command = "Match";
-                                    user.contact = tmp?.ToString();
-                                    WriteLine("Match found: " + tmp?.ToString());
+                                    user.contact = tmp?.login;
+                                    user.avatar = tmp.avatar;
+                                    user.phone = tmp.phone;
+                                    WriteLine("Match found: " + tmp?.login);
                                 }
                                 else
                                 {
@@ -165,8 +187,110 @@ namespace Whisper_Server
                                             select b.Message;
                                 user.chat = query.ToList();
                                 user.command = "Chat";
-                                UpdateResponce(handler, user);
                             }
+                            Responce(handler, user);
+                        }
+                        else if (user.command == "ChangeProfile")
+                        {
+                            using (var db = new UsersContext())
+                            {
+                                var query = from b in db.users
+                                            where b.ip == ip.ToString()
+                                            select b;
+                                var data = query.FirstOrDefault();
+                                user.login = data?.login;
+                                user.password = data?.password;
+                                user.phone = data?.phone;
+                                user.command = "CurrentProfile";
+                            }
+                            Responce(handler, user);
+                        }
+                        else if (user.command == "Profile")
+                        {
+                            User u = new User();
+                            string tmp = null;
+                            using (var db = new UsersContext())
+                            {
+                                var query = from b in db.users
+                                            where b.ip == ip.ToString()
+                                            select b.Id;
+                                var id = query.FirstOrDefault();
+                                var toUpdate = db.users.Find(id);
+                                if (toUpdate != null)
+                                {
+                                    tmp = toUpdate.login;
+                                    toUpdate.login = user.login;
+                                    toUpdate.password = user.password;
+                                    toUpdate.phone = user.phone;
+                                    if (user.avatar != null)
+                                    {
+                                        toUpdate.avatar = user.avatar;
+                                    }
+                                    toUpdate.ip = ip.ToString();
+                                    db.SaveChanges();
+                                    user.command = "ProfileSaved";
+                                    WriteLine("User " + user.login + " changed his profile on " + DateTime.Now.ToString());
+                                }
+                                else
+                                {
+                                    user.command = "ProfileNotSaved";
+                                    WriteLine("User " + user.login + " changing profile failed on " + DateTime.Now.ToString());
+                                }
+                            }
+                            Responce(handler, user);
+                            u = SendChangedProfile(ip);
+                            u.mess = tmp;
+                            SendToReceiver(u);
+                        }
+                        else if (user.command == "DeleteProfile")
+                        {
+                            using (var db = new UsersContext())
+                            {
+                                var query = from b in db.users
+                                            where b.ip == ip.ToString()
+                                            select b.Id;
+                                var id = query.FirstOrDefault();
+                                var toUpdate = db.users.Find(id);
+                                if (toUpdate != null)
+                                {
+                                    db.users.Remove(toUpdate);
+                                    db.SaveChanges();
+                                    user.command = "ProfileDeleted";
+                                    WriteLine("User " + user.login + " deleted his profile on " + DateTime.Now.ToString());
+                                }
+                                else
+                                {
+                                    user.command = "ProfileNotDeleted";
+                                    WriteLine("User " + user.login + " deleting profile failed on " + DateTime.Now.ToString());
+                                }
+                            }
+                            Responce(handler, user);
+                        }
+                        else if (user.command == "DeleteUser")
+                        {
+                            
+                            using (var db = new UsersContext())
+                            {
+                                var query1 = from b in db.users
+                                             where b.login ==  user.contact
+                                             select b.ip;
+                                var temp = query1.FirstOrDefault();
+                                var messagesToDelete = from b in db.messages
+                                                       where (b.SenderIp == ip.ToString() && b.ReceiverIp == temp) || (b.SenderIp == temp && b.ReceiverIp == ip.ToString())
+                                                       select b;
+
+                                foreach (var message in messagesToDelete)
+                                {
+                                    db.messages.Remove(message);
+                                }
+
+                                db.SaveChanges();
+
+                                user.command = "successfulDeleted"; 
+                            }
+
+                            
+                            Responce(handler, user);
                         }
                     }
                 }
@@ -197,7 +321,39 @@ namespace Whisper_Server
                 }
             });
         }
-        
+
+        private static async void SendToReceiver(User user)
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                    socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveBuffer, 10000000);
+                    socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.SendBuffer, 10000000);
+                    IPAddress ipAddr = IPAddress.Parse(user.contact);
+                    IPEndPoint ipEndPoint = new IPEndPoint(ipAddr, 49153);
+                    if (IsEndPointAvailable(ipEndPoint, socket))
+                    {
+                        DataContractJsonSerializer jsonFormatter = null;
+                        jsonFormatter = new DataContractJsonSerializer(typeof(User));
+                        MemoryStream stream = new MemoryStream();
+                        byte[] msg = null;
+                        jsonFormatter.WriteObject(stream, user);
+                        msg = stream.ToArray();
+                        socket.Send(msg);
+                        stream.Close();
+                        socket.Shutdown(SocketShutdown.Both);
+                        socket.Close();
+                        //GetProfileRequest();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    WriteLine("Сервер-ответ смс: " + ex.Message);
+                }
+            });
+        }
         private static bool IsEndPointAvailable(IPEndPoint iPEnd, Socket socket)
         {
             try
@@ -205,31 +361,101 @@ namespace Whisper_Server
                 socket.Connect(iPEnd);
                 return true;
             }
-            catch(SocketException)
+            catch (SocketException)
             {
                 return false;
             }
         }
-        private static async void UpdateResponce(Socket socket, User user)
+
+        private static User SendChangedProfile(IPAddress ip)
         {
-            await Task.Run(() =>
-            {
-                try
+            //try
+            //{
+                User u = new User();
+                using (var db = new UsersContext())
                 {
-                    DataContractJsonSerializer jsonFormatter = null;
-                    jsonFormatter = new DataContractJsonSerializer(typeof(User));
-                    MemoryStream stream = new MemoryStream();
-                    byte[] msg = null;
-                    jsonFormatter.WriteObject(stream, user);
-                    msg = stream.ToArray();
-                    socket.Send(msg);
-                    stream.Close();
+                    var query = (from b in db.messages
+                                 where b.SenderIp == ip.ToString()
+                                 select b.ReceiverIp)
+                                .Distinct();
+                    var ipArr = query.FirstOrDefault();
+                    var query1 = from b in db.users
+                                 where b.ip == ip.ToString()
+                                 select b;
+                    var tmp = query1.FirstOrDefault();
+                    u.login = tmp.login;
+                    u.avatar = tmp.avatar;
+                    u.command = "ContactProfileChanged";
+                    u.contact = ipArr;
                 }
-                catch (Exception ex)
-                {
-                    WriteLine("Сервер-ответ чат: " + ex.Message);
-                }
-            });
+                return u;
+            //}
+            //catch(Exception ex)
+            //{
+            //    WriteLine("Отправка рассылки" + ex.Message);
+            //}
         }
+
+        private static List<Profile> GetContactList(IPAddress ip)
+        {
+            using (var db = new UsersContext())
+            {
+                var query = (from b in db.messages
+                             where b.SenderIp == ip.ToString()
+                             select b.ReceiverIp)
+                                .Distinct();
+                var ipArr = query.ToArray();
+                List<Profile> list = new List<Profile>();
+                if (ipArr.Length > 0)
+                {
+                    foreach (var o in ipArr)
+                    {
+                        var query1 = from b in db.users
+                                     where b.ip == o
+                                     select b;
+                        var tmp = query1.FirstOrDefault();
+                        Profile profile = new Profile();
+                        profile.login = tmp.login;
+                        profile.avatar = tmp.avatar;
+                        profile.phone = tmp.phone;
+                        list.Add(profile);
+                    }
+                    return list;
+                }
+                else
+                    return list;
+            }
+        }
+
+        //private static async void GetProfileRequest()
+        //{
+        //    await Task.Run(() =>
+        //    {
+        //        try
+        //        {
+        //            byte[] bytes = new byte[1024];
+        //            int bytesRec = 0;
+        //            while (true)
+        //            {
+        //                bytesRec = socket.Receive(bytes);
+        //                if (bytesRec == 0)
+        //                {
+        //                    socket.Shutdown(SocketShutdown.Both);
+        //                    socket.Close();
+        //                    return;
+        //                }
+        //                MemoryStream stream = new MemoryStream(bytes, 0, bytesRec);
+        //                DataContractJsonSerializer jsonFormatter = null;
+        //                jsonFormatter = new DataContractJsonSerializer(typeof(string));
+        //                var str = (string)jsonFormatter.ReadObject(stream);
+        //                stream.Close();
+        //            }
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            WriteLine("Получение рассылки" + ex.Message);
+        //        }
+        //    });
+        //}
     }
 }

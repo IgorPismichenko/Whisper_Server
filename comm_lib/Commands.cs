@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.Drawing;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 
@@ -23,5 +24,20 @@ namespace comm_lib
         public string? contact { get; set; }
         [DataMember]
         public List<string>? chat { get; set; }
+        [DataMember]
+        public byte[]? avatar { get; set; }
+        [DataMember]
+        public List<Profile>? profile { get; set; }
+    }
+
+    [DataContract]
+    public class Profile
+    {
+        [DataMember]
+        public string? login { get; set; }
+        [DataMember]
+        public byte[]? avatar { get; set; }
+        [DataMember]
+        public string? phone { get; set; }
     }
 }
