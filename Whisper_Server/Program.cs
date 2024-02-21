@@ -10,6 +10,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using Microsoft.EntityFrameworkCore.Storage.Internal;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace Whisper_Server
 {
@@ -261,6 +262,32 @@ namespace Whisper_Server
                                     WriteLine("User " + user.login + " deleting profile failed on " + DateTime.Now.ToString());
                                 }
                             }
+                            Responce(handler, user);
+                        }
+                        else if (user.command == "DeleteUser")
+                        {
+                            
+                            using (var db = new UsersContext())
+                            {
+                                var query1 = from b in db.users
+                                             where b.login ==  user.contact
+                                             select b.ip;
+                                var temp = query1.FirstOrDefault();
+                                var messagesToDelete = from b in db.messages
+                                                       where (b.SenderIp == ip.ToString() && b.ReceiverIp == temp) || (b.SenderIp == temp && b.ReceiverIp == ip.ToString())
+                                                       select b;
+
+                                foreach (var message in messagesToDelete)
+                                {
+                                    db.messages.Remove(message);
+                                }
+
+                                db.SaveChanges();
+
+                                user.command = "successfulDeleted"; 
+                            }
+
+                            
                             Responce(handler, user);
                         }
                     }
