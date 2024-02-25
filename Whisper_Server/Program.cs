@@ -14,14 +14,12 @@ namespace Whisper_Server
 {
     class Program
     {
-        //static Socket socket;
         static void Main(string[] args)
         {
-            //socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            Accept(); //устанавливаем прослушивание 
-            ReadLine(); //Держим сервер в работающем состоянии
+            Accept();
+            ReadLine();
         }
-
+        #region Receiving
         private static async void Accept()
         {
             await Task.Run(() =>
@@ -126,22 +124,51 @@ namespace Whisper_Server
                             {
                                 var query = from b in db.users
                                             where b.login == user.contact
-                                            where b.login == user.contact
-                                            select b.ip;
-                                var tmp = query.FirstOrDefault();
+                                            select b;
+                                var receiverLogin = query.FirstOrDefault().login;
+                                var receiverIp = query.FirstOrDefault().ip;
                                 var query2 = from b in db.users
                                              where b.ip == ip.ToString()
                                              select b.login;
-                                var tmp2 = query2.FirstOrDefault();
-                                var message = new Messages() { SenderIp = ip.ToString(), ReceiverIp = tmp?.ToString(), Message = user.mess };
-                                db.messages.Add(message);
+                                var senderLogin = query2.FirstOrDefault();
+                                if (user.media != null)
+                                {
+                                    string folderPath = "Media";
+                                    string filePath = Path.Combine(folderPath, user.path);
+                                    using(FileStream fs = new FileStream(filePath, FileMode.Create))
+                                    {
+                                        fs.Write(user.media, 0, user.media.Length);
+                                    }
+                                    var message = new Messages() { SenderLogin = senderLogin, ReceiverLogin = receiverLogin, Media = user.path, Date = user.data };
+                                    db.messages.Add(message);
+                                }
+                                else
+                                {
+                                    var message = new Messages() { SenderLogin = senderLogin, ReceiverLogin = receiverLogin, Message = user.mess, Date = user.data };
+                                    db.messages.Add(message);
+                                }
+                                
                                 db.SaveChanges();
                                 var query1 = from b in db.messages
-                                             where (b.SenderIp == ip.ToString() && b.ReceiverIp == tmp) || (b.SenderIp == tmp && b.ReceiverIp == ip.ToString())
-                                             select b.Message;
-                                user.chat = query1.ToList();
-                                user.contact = tmp;
-                                user.login = tmp2;
+                                             where (b.SenderLogin == senderLogin && b.ReceiverLogin == receiverLogin) || (b.SenderLogin == receiverLogin && b.ReceiverLogin == senderLogin)
+                                             select b;
+                                var tmpObjects = query1.ToList();
+                                foreach(var obj in tmpObjects)
+                                {
+                                    Chat c = new Chat();
+                                    if (obj.Message != null)
+                                    {
+                                        c.message = obj.Message;
+                                    }
+                                    if (obj.Media != null)
+                                    {
+                                        c.media = GetImageBytes(obj.Media);
+                                    }
+                                    c.date = obj.Date;
+                                    c.chatContact = obj.SenderLogin;
+                                    user.chat.Add(c);
+                                }
+                                user.contact = receiverIp;
                                 user.command = "SendingMessage";
                             }
                             SendToReceiver(user);
@@ -177,12 +204,31 @@ namespace Whisper_Server
                             {
                                 var query1 = from b in db.users
                                              where b.login == user.contact
-                                             select b.ip;
-                                var temp = query1.FirstOrDefault();
+                                             select b.login;
+                                var query2 = from b in db.users
+                                             where b.ip == ip.ToString()
+                                             select b.login;
+                                var contactLogin = query1.FirstOrDefault();
+                                var senderLogin = query2.FirstOrDefault();
                                 var query = from b in db.messages
-                                            where (b.SenderIp == ip.ToString() && b.ReceiverIp == temp) || (b.SenderIp == temp && b.ReceiverIp == ip.ToString())
-                                            select b.Message;
-                                user.chat = query.ToList();
+                                            where (b.SenderLogin == senderLogin && b.ReceiverLogin == contactLogin) || (b.SenderLogin == contactLogin && b.ReceiverLogin == senderLogin)
+                                            select b;
+                                var tmpObjects = query.ToList();
+                                foreach (var obj in tmpObjects)
+                                {
+                                    Chat c = new Chat();
+                                    if (obj.Message != null)
+                                    {
+                                        c.message = obj.Message;
+                                    }
+                                    if (obj.Media != null)
+                                    {
+                                        c.media = GetImageBytes(obj.Media);
+                                    }
+                                    c.chatContact = obj.SenderLogin;
+                                    c.date = obj.Date;
+                                    user.chat.Add(c);
+                                }
                                 user.command = "Chat";
                             }
                             Responce(handler, user);
@@ -235,9 +281,23 @@ namespace Whisper_Server
                                 }
                             }
                             Responce(handler, user);
-                            u = SendChangedProfile(ip);
+                            List<string> ips = SendChangedProfile(ip);
+                            using (var db = new UsersContext())
+                            {
+                                var query1 = from b in db.users
+                                             where b.ip == ip.ToString()
+                                             select b;
+                                var tmp1 = query1.FirstOrDefault();
+                                u.login = tmp1.login;
+                                u.avatar = tmp1.avatar;
+                                u.command = "ContactProfileChanged";
+                            }
                             u.mess = tmp;
-                            SendToReceiver(u);
+                            foreach(var i in ips)
+                            {
+                                u.contact = i;
+                                SendToReceiver(u);
+                            }
                         }
                         else if (user.command == "DeleteProfile")
                         {
@@ -271,6 +331,8 @@ namespace Whisper_Server
                 }
             });
         }
+        #endregion
+        #region Responcing
         private static async void Responce(Socket socket, User user)
         {
             await Task.Run(() =>
@@ -316,7 +378,6 @@ namespace Whisper_Server
                         stream.Close();
                         socket.Shutdown(SocketShutdown.Both);
                         socket.Close();
-                        //GetProfileRequest();
                     }
                 }
                 catch (Exception ex)
@@ -338,46 +399,54 @@ namespace Whisper_Server
             }
         }
 
-        private static User SendChangedProfile(IPAddress ip)
+        private static List<string> SendChangedProfile(IPAddress ip)
         {
-            User u = new User();
+            List<string> ipArr = new List<string>();
             using (var db = new UsersContext())
             {
-                var query = (from b in db.messages
-                             where b.SenderIp == ip.ToString()
-                             select b.ReceiverIp)
-                            .Distinct();
-                var ipArr = query.FirstOrDefault();
                 var query1 = from b in db.users
                              where b.ip == ip.ToString()
                              select b;
                 var tmp = query1.FirstOrDefault();
-                u.login = tmp.login;
-                u.avatar = tmp.avatar;
-                u.command = "ContactProfileChanged";
-                u.contact = ipArr;
+                var query = (from b in db.messages
+                             where b.SenderLogin == tmp.login
+                             select b.ReceiverLogin)
+                            .Distinct();
+                var loginArr = query.ToList();
+                foreach(var l in  loginArr)
+                {
+                    var query2 = from b in db.users
+                                 where b.login == l
+                                 select b.ip;
+                    if(query2.Count() > 0)
+                        ipArr.Add(query2.FirstOrDefault());
+                }
             }
-            return u;
+            return ipArr;
         }
 
         private static List<Profile> GetContactList(IPAddress ip)
         {
             using (var db = new UsersContext())
             {
+                var query1 = from b in db.users
+                             where b.ip == ip.ToString()
+                             select b.login;
+                var log = query1.FirstOrDefault();
                 var query = (from b in db.messages
-                             where b.SenderIp == ip.ToString()
-                             select b.ReceiverIp)
+                             where b.SenderLogin == log
+                             select b.ReceiverLogin)
                                 .Distinct();
-                var ipArr = query.ToArray();
+                var logArr = query.ToArray();
                 List<Profile> list = new List<Profile>();
-                if (ipArr.Length > 0)
+                if (logArr.Length > 0)
                 {
-                    foreach (var o in ipArr)
+                    foreach (var o in logArr)
                     {
-                        var query1 = from b in db.users
-                                     where b.ip == o
+                        var query2 = from b in db.users
+                                     where b.login == o
                                      select b;
-                        var tmp = query1.FirstOrDefault();
+                        var tmp = query2.FirstOrDefault();
                         Profile profile = new Profile();
                         profile.login = tmp.login;
                         profile.avatar = tmp.avatar;
@@ -390,36 +459,15 @@ namespace Whisper_Server
                     return list;
             }
         }
-
-        //private static async void GetProfileRequest()
-        //{
-        //    await Task.Run(() =>
-        //    {
-        //        try
-        //        {
-        //            byte[] bytes = new byte[1024];
-        //            int bytesRec = 0;
-        //            while (true)
-        //            {
-        //                bytesRec = socket.Receive(bytes);
-        //                if (bytesRec == 0)
-        //                {
-        //                    socket.Shutdown(SocketShutdown.Both);
-        //                    socket.Close();
-        //                    return;
-        //                }
-        //                MemoryStream stream = new MemoryStream(bytes, 0, bytesRec);
-        //                DataContractJsonSerializer jsonFormatter = null;
-        //                jsonFormatter = new DataContractJsonSerializer(typeof(string));
-        //                var str = (string)jsonFormatter.ReadObject(stream);
-        //                stream.Close();
-        //            }
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            WriteLine("Получение рассылки" + ex.Message);
-        //        }
-        //    });
-        //}
+        #endregion
+        private static byte[] GetImageBytes(string p)
+        {
+            using (MemoryStream ms = new MemoryStream())
+            {
+                Bitmap bitmap = new Bitmap(p);
+                bitmap.Save(ms, bitmap.RawFormat);
+                return ms.ToArray();
+            }
+        }
     }
 }

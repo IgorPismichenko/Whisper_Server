@@ -20,23 +20,19 @@ namespace Whisper_Server.Model
         [DataMember]
         public string? mess { get; set; }
         [DataMember]
+        public string? path { get; set; }
+        [DataMember]
         public string? contact { get; set; }
         [DataMember]
-        public List<string>? chat { get; set; }
+        public List<Chat>? chat { get; set; }
         [DataMember]
         public byte[]? avatar { get; set; }
         [DataMember]
         public List<Profile>? profile { get; set; }
-    }
+        [DataMember]
+        public byte[] media { get; set; }
 
-    [DataContract]
-    public class Profile
-    {
         [DataMember]
-        public string? login { get; set; }
-        [DataMember]
-        public byte[]? avatar { get; set; }
-        [DataMember]
-        public string? phone { get; set; }
+        public string? data { get; set; }
     }
 }
