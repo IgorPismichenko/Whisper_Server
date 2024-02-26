@@ -9,6 +9,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using Microsoft.EntityFrameworkCore.Storage.Internal;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace Whisper_Server
 {
@@ -72,6 +73,8 @@ namespace Whisper_Server
                         stream.Close();
                         if (user.command == "Login")
                         {
+                            User u = new User();
+                            string tmp1 = null;
                             WriteLine("User " + user.login + " sent authorization request on " + DateTime.Now.ToString());
                             using (var db = new UsersContext())
                             {
@@ -84,6 +87,9 @@ namespace Whisper_Server
                                     user.command = "AcceptLog";
                                     user.avatar = tmp.avatar;
                                     user.phone = tmp.phone;
+                                    user.online = "online";
+
+
                                     user.profile = GetContactList(ip);
                                     WriteLine("User " + user.login + " is authorized on " + DateTime.Now.ToString());
                                 }
@@ -94,9 +100,15 @@ namespace Whisper_Server
                                 }
                             }
                             Responce(handler, user);
+
+                            u = SendOnlineStatus(ip);
+                            u.mess = tmp1;
+                            SendToReceiver(u);
                         }
                         else if (user.command == "Register")
                         {
+                            User u = new User();
+                            string tmp1 = null;
                             WriteLine("New user " + user.login + " sent registration request on " + DateTime.Now.ToString());
                             using (var db = new UsersContext())
                             {
@@ -106,18 +118,24 @@ namespace Whisper_Server
                                 if (query.Count() > 0 || user.login == "login" || user.password == "password" || user.phone == "phone")
                                 {
                                     user.command = "Exist";
+                                   
                                     WriteLine("New user " + user.login + " was not registered - user info already exists" + DateTime.Now.ToString());
                                 }
                                 else
                                 {
-                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone, ip = ip.ToString(), avatar = user.avatar };
+                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone, ip = ip.ToString(), avatar = user.avatar , isOnline = "online"};
                                     db.users.Add(User);
                                     db.SaveChanges();
                                     user.command = "Accept";
+                                    user.online = "online";
                                     WriteLine("New user " + user.login + " is registered on " + DateTime.Now.ToString());
                                 }
                             }
                             Responce(handler, user);
+
+                            u = SendOnlineStatus(ip);
+                            u.mess = tmp1;
+                            SendToReceiver(u);
                         }
                         else if (user.command == "Send")
                         {
@@ -273,11 +291,11 @@ namespace Whisper_Server
                                              where b.login == user.contact
                                              select b.ip;
                                 var temp = query1.FirstOrDefault();
-                                var messagesToDelete = from b in db.messages
+                                var chatToDelete = from b in db.messages
                                                        where (b.SenderIp == ip.ToString() && b.ReceiverIp == temp) || (b.SenderIp == temp && b.ReceiverIp == ip.ToString())
                                                        select b;
 
-                                foreach (var message in messagesToDelete)
+                                foreach (var message in chatToDelete)
                                 {
                                     db.messages.Remove(message);
                                 }
@@ -287,6 +305,38 @@ namespace Whisper_Server
                                 user.command = "successfulDeleted";
                             }
                             WriteLine("User " + user.login + " deleted chat with " + user.contact + " in" + DateTime.Now.ToString());
+
+
+                            Responce(handler, user);
+                        }
+                        else if(user.command == "DeleteSms")
+                        {
+                            using (var db = new UsersContext())
+                            {
+
+                                var query = from b in db.messages
+                                                      where (b.Message == user.mess)
+                                                      select b;
+
+                               
+                                var messageToDelete = query.FirstOrDefault();
+                                if (messageToDelete != null)
+                                {
+                                    db.messages.Remove(messageToDelete);
+                                    db.SaveChanges();
+                                    WriteLine("User " + user.login + " deleted sms in chat with " + user.contact + " at " + DateTime.Now.ToString());
+                                    user.command = "successfulDeletedSms";
+                                }
+                                else
+                                {
+                                    WriteLine("Message not found or already deleted.");
+                                    user.command = "failedDeletedSms";
+                                }
+                              
+
+                                
+                            }
+                            WriteLine("User " + user.login + " deleted sms in chat with " + user.contact + " at" + DateTime.Now.ToString());
 
 
                             Responce(handler, user);
@@ -387,6 +437,29 @@ namespace Whisper_Server
             }
             return u;
         }
+        private static User SendOnlineStatus(IPAddress ip)
+        {
+            User u = new User();
+            using (var db = new UsersContext())
+            {
+                var query = (from b in db.messages
+                             where b.SenderIp == ip.ToString()
+                             select b.ReceiverIp)
+                            .Distinct();
+                var ipArr = query.FirstOrDefault();
+                var query1 = from b in db.users
+                             where b.ip == ip.ToString()
+                             select b;
+                var tmp = query1.FirstOrDefault();
+                u.online = "online";
+               
+                u.command = "ContactIsOnline";
+                u.contact = ipArr;
+            }
+            return u;
+        }
+
+
 
         private static List<Profile> GetContactList(IPAddress ip)
         {
