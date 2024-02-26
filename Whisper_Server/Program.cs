@@ -125,15 +125,21 @@ namespace Whisper_Server
                                 var query = from b in db.users
                                             where b.login == user.contact
                                             select b;
-                                var receiverLogin = query.FirstOrDefault().login;
-                                var receiverIp = query.FirstOrDefault().ip;
+                                var tmp = query.FirstOrDefault();
+                                var receiverLogin = tmp.login;
+                                var receiverIp = tmp.ip;
                                 var query2 = from b in db.users
                                              where b.ip == ip.ToString()
                                              select b.login;
                                 var senderLogin = query2.FirstOrDefault();
                                 if (user.media != null)
                                 {
-                                    string folderPath = "Media";
+                                    string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                                    string folderPath = Path.Combine(baseDirectory, "Media");
+                                    if (!Directory.Exists(folderPath))
+                                    {
+                                        Directory.CreateDirectory(folderPath);
+                                    }
                                     string filePath = Path.Combine(folderPath, user.path);
                                     using(FileStream fs = new FileStream(filePath, FileMode.Create))
                                     {
@@ -153,7 +159,8 @@ namespace Whisper_Server
                                              where (b.SenderLogin == senderLogin && b.ReceiverLogin == receiverLogin) || (b.SenderLogin == receiverLogin && b.ReceiverLogin == senderLogin)
                                              select b;
                                 var tmpObjects = query1.ToList();
-                                foreach(var obj in tmpObjects)
+                                user.chat = new List<Chat>();
+                                foreach (var obj in tmpObjects)
                                 {
                                     Chat c = new Chat();
                                     if (obj.Message != null)
@@ -214,6 +221,7 @@ namespace Whisper_Server
                                             where (b.SenderLogin == senderLogin && b.ReceiverLogin == contactLogin) || (b.SenderLogin == contactLogin && b.ReceiverLogin == senderLogin)
                                             select b;
                                 var tmpObjects = query.ToList();
+                                user.chat = new List<Chat>();
                                 foreach (var obj in tmpObjects)
                                 {
                                     Chat c = new Chat();
@@ -221,9 +229,12 @@ namespace Whisper_Server
                                     {
                                         c.message = obj.Message;
                                     }
-                                    if (obj.Media != null)
+                                    else if (obj.Media != null)
                                     {
-                                        c.media = GetImageBytes(obj.Media);
+                                        string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                                        string folderPath = Path.Combine(baseDirectory, "Media");
+                                        string filePath = Path.Combine(folderPath, obj.Media);
+                                        c.media = GetImageBytes(filePath);
                                     }
                                     c.chatContact = obj.SenderLogin;
                                     c.date = obj.Date;
