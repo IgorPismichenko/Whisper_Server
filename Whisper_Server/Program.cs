@@ -73,8 +73,8 @@ namespace Whisper_Server
                         stream.Close();
                         if (user.command == "Login")
                         {
-                            User u = new User();
-                            string tmp1 = null;
+                        //    User u = new User();
+                        //    string tmp1 = null;
                             WriteLine("User " + user.login + " sent authorization request on " + DateTime.Now.ToString());
                             using (var db = new UsersContext())
                             {
@@ -101,14 +101,14 @@ namespace Whisper_Server
                             }
                             Responce(handler, user);
 
-                            u = SendOnlineStatus(ip);
-                            u.mess = tmp1;
-                            SendToReceiver(u);
+                            //u = SendOnlineStatus(ip);
+                            //u.mess = tmp1;
+                            //SendToReceiver(u);
                         }
                         else if (user.command == "Register")
                         {
-                            User u = new User();
-                            string tmp1 = null;
+                            //User u = new User();
+                            //string tmp1 = null;
                             WriteLine("New user " + user.login + " sent registration request on " + DateTime.Now.ToString());
                             using (var db = new UsersContext())
                             {
@@ -128,14 +128,15 @@ namespace Whisper_Server
                                     db.SaveChanges();
                                     user.command = "Accept";
                                     user.online = "online";
+
                                     WriteLine("New user " + user.login + " is registered on " + DateTime.Now.ToString());
                                 }
                             }
                             Responce(handler, user);
 
-                            u = SendOnlineStatus(ip);
-                            u.mess = tmp1;
-                            SendToReceiver(u);
+                            //u = SendOnlineStatus(ip);
+                            //u.mess = tmp1;
+                            //SendToReceiver(u);
                         }
                         else if (user.command == "Send")
                         {
@@ -192,6 +193,8 @@ namespace Whisper_Server
                         }
                         else if (user.command == "Update")
                         {
+                            User u = new User();
+                            string tmp1 = null;
                             using (var db = new UsersContext())
                             {
                                 var query1 = from b in db.users
@@ -202,9 +205,15 @@ namespace Whisper_Server
                                             where (b.SenderIp == ip.ToString() && b.ReceiverIp == temp) || (b.SenderIp == temp && b.ReceiverIp == ip.ToString())
                                             select b.Message;
                                 user.chat = query.ToList();
+                                //user.online = "online";
                                 user.command = "Chat";
                             }
                             Responce(handler, user);
+
+                            u = SendOnlineStatus(ip);
+                            u.mess = tmp1;
+                            
+                            SendToReceiver(u);
                         }
                         else if (user.command == "ChangeProfile")
                         {
