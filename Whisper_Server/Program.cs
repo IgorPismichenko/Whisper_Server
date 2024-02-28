@@ -57,17 +57,25 @@ namespace Whisper_Server
                     int bytesRec = 0;
                     while (true)
                     {
-                        bytesRec = handler.Receive(bytes);
-                        IPAddress ip = ((IPEndPoint)handler.RemoteEndPoint).Address;
-                        if (bytesRec == 0)
+                        
+                            bytesRec = handler.Receive(bytes);
+                            IPAddress ip = ((IPEndPoint)handler.RemoteEndPoint).Address;
+                            if (bytesRec == 0)
+                            {
+                                handler.Shutdown(SocketShutdown.Both);
+                                handler.Close();
+                                return;
+                            }
+                        try
                         {
-                            handler.Shutdown(SocketShutdown.Both);
-                            handler.Close();
-                            return;
+                            MemoryStream stream = new MemoryStream(bytes, 0, bytesRec);
+                            user = (User)jsonFormatter.ReadObject(stream);
+                            stream.Close();
                         }
-                        MemoryStream stream = new MemoryStream(bytes, 0, bytesRec);
-                        user = (User)jsonFormatter.ReadObject(stream);
-                        stream.Close();
+                        catch(Exception ex)
+                        {
+                            WriteLine("Сервер-получение: " + ex.Message);
+                        }
                         if (user.command == "Login")
                         {
                             WriteLine("User " + user.login + " sent authorization request on " + DateTime.Now.ToString());
@@ -145,7 +153,7 @@ namespace Whisper_Server
                                     {
                                         fs.Write(user.media, 0, user.media.Length);
                                     }
-                                    var message = new Messages() { SenderLogin = senderLogin, ReceiverLogin = receiverLogin, Media = user.path, Date = user.data };
+                                    var message = new Messages() { SenderLogin = senderLogin, ReceiverLogin = receiverLogin, Media = filePath, Date = user.data };
                                     db.messages.Add(message);
                                 }
                                 else
