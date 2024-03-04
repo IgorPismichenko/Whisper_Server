@@ -73,25 +73,70 @@ namespace Whisper_Server
                         stream.Close();
                         if (user.command == "Login")
                         {
-                        //    User u = new User();
-                        //    string tmp1 = null;
+                            User u = new User();
+                            //string tmp1 = null;
                             WriteLine("User " + user.login + " sent authorization request on " + DateTime.Now.ToString());
                             using (var db = new UsersContext())
                             {
                                 var query = from b in db.users
                                             where b.login == user.login && b.password == user.password
                                             select b;
+                                var query1 = from b in db.users
+                                            where b.ip == ip.ToString()
+                                            select b.Id;
+
                                 var tmp = query.FirstOrDefault();
                                 if (query.Count() > 0)
                                 {
                                     user.command = "AcceptLog";
                                     user.avatar = tmp.avatar;
                                     user.phone = tmp.phone;
-                                    user.online = "online";
+                                    user.online = "green";
 
 
                                     user.profile = GetContactList(ip);
                                     WriteLine("User " + user.login + " is authorized on " + DateTime.Now.ToString());
+
+                                    
+
+                                    var id = query1.FirstOrDefault();
+                                    var toUpdate = db.users.Find(id);
+                                    if (toUpdate != null)
+                                    {
+                                        
+                                        toUpdate.isOnline = "green";
+                                        db.SaveChanges();
+                                    }
+                                    using (var db2 = new UsersContext())
+                                    {
+                                        var query2 = (from b in db2.messages
+                                                      where b.SenderIp == ip.ToString()
+                                                      select b.ReceiverIp).Distinct();
+
+                                        var receiverIps = query2.ToList();
+
+
+                                        //var onlineUsers = db.users.Where(u => u.ip == ip.ToString() && u.isOnline == u.isOnline).ToList();
+                                        var onlineUsers = from b in db2.users
+                                                          where b.ip == ip.ToString()
+                                                          select b;
+                                        var onlineReceiverIps = onlineUsers.FirstOrDefault();
+                                        u.login = onlineReceiverIps.login;
+                                        u.command = "ContactIsOnline";
+                                        u.online = "green";
+
+                                        foreach (var onlineUser in receiverIps)
+                                        {
+
+                                            u.contact = onlineUser;
+                                            SendToReceiver(u);
+
+                                        }
+
+
+                                    }
+
+
                                 }
                                 else if (user.login == "login" || user.password == "password" || query.Count() == 0)
                                 {
@@ -123,11 +168,11 @@ namespace Whisper_Server
                                 }
                                 else
                                 {
-                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone, ip = ip.ToString(), avatar = user.avatar , isOnline = "online"};
+                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone, ip = ip.ToString(), avatar = user.avatar , isOnline = "green"};
                                     db.users.Add(User);
                                     db.SaveChanges();
                                     user.command = "Accept";
-                                    user.online = "online";
+                                    user.online = "green";
 
                                     WriteLine("New user " + user.login + " is registered on " + DateTime.Now.ToString());
                                 }
@@ -199,21 +244,55 @@ namespace Whisper_Server
                             {
                                 var query1 = from b in db.users
                                              where b.login == user.contact
-                                             select b.ip;
+                                             select b;
                                 var temp = query1.FirstOrDefault();
                                 var query = from b in db.messages
-                                            where (b.SenderIp == ip.ToString() && b.ReceiverIp == temp) || (b.SenderIp == temp && b.ReceiverIp == ip.ToString())
+                                            where (b.SenderIp == ip.ToString() && b.ReceiverIp == temp.ip) || (b.SenderIp == temp.ip && b.ReceiverIp == ip.ToString())
                                             select b.Message;
+
+                                var onlineUsers = from b in db.users
+                                                  where b.ip == ip.ToString()
+                                                  select b;
+                                var onlineReceiverIps = onlineUsers.FirstOrDefault();
+
                                 user.chat = query.ToList();
-                                //user.online = "online";
+                                user.login = temp.login;
+                                user.online = temp.isOnline;
                                 user.command = "Chat";
+
+                                //using (var db2 = new UsersContext())
+                                //{
+                                //    var query2 = (from b in db2.messages
+                                //                  where b.SenderIp == ip.ToString()
+                                //                  select b.ReceiverIp).Distinct();
+
+                                //    var receiverIps = query2.ToList();
+
+
+                                //    //var onlineUsers = db.users.Where(u => u.ip == ip.ToString() && u.isOnline == u.isOnline).ToList();
+                                //    var onlineUsers = from b in db2.users
+                                //                      where b.ip == ip.ToString()
+                                //                      select b;
+                                //    var onlineReceiverIps = onlineUsers.FirstOrDefault();
+                                //    u.login = onlineReceiverIps.login;
+                                //    u.command = "ContactIsOnline";
+                                //    u.online = onlineReceiverIps.isOnline;
+
+                                //    foreach (var onlineUser in receiverIps)
+                                //    {
+
+                                //        u.contact = onlineUser;
+                                //        SendToReceiver(u);
+
+                                //    }
+
+
+                                //}
+
                             }
                             Responce(handler, user);
 
-                            u = SendOnlineStatus(ip);
-                            u.mess = tmp1;
-                            
-                            SendToReceiver(u);
+                           
                         }
                         else if (user.command == "ChangeProfile")
                         {
@@ -350,6 +429,63 @@ namespace Whisper_Server
 
                             Responce(handler, user);
                         }
+                        else if(user.command == "CloseCommand")
+                        {
+                            User u = new User();
+
+                            using (var db = new UsersContext())
+                            {
+                                var query = from b in db.users
+                                            where b.ip == ip.ToString()
+                                            select b.Id;
+
+                                var id = query.FirstOrDefault();
+                                var toUpdate = db.users.Find(id);
+                                if (toUpdate != null)
+                                {
+                                    toUpdate.login = user.login;
+                                    toUpdate.isOnline = user.online;
+                                    db.SaveChanges();
+                                }
+                                //user.command = "statusSaved";
+
+                            }
+                            Responce(handler, user);
+
+                            //u = SendOnlineStatus(ip);
+
+                            using (var db = new UsersContext())
+                            {
+                                var query = (from b in db.messages
+                                             where b.SenderIp == ip.ToString()
+                                             select b.ReceiverIp).Distinct();
+
+                                var receiverIps = query.ToList();
+
+                               
+                                    //var onlineUsers = db.users.Where(u => u.ip == ip.ToString() && u.isOnline == u.isOnline).ToList();
+                                    var onlineUsers = from b in db.users
+                                                 where b.ip == ip.ToString()
+                                                 select b;
+                                    var onlineReceiverIps = onlineUsers.FirstOrDefault();
+
+                                    u.login = onlineReceiverIps.login;
+                                    u.command = "ContactIsOnline";
+                                    u.online = "red";
+
+                                    foreach (var onlineUser in receiverIps)
+                                    {
+                                        
+                                        u.contact = onlineUser;
+                                        SendToReceiver(u);
+
+                                    }
+                                
+                            }
+
+                            
+                        }
+
                     }
                 }
                 catch (Exception ex)
@@ -446,29 +582,8 @@ namespace Whisper_Server
             }
             return u;
         }
-        private static User SendOnlineStatus(IPAddress ip)
-        {
-            User u = new User();
-            using (var db = new UsersContext())
-            {
-                var query = (from b in db.messages
-                             where b.SenderIp == ip.ToString()
-                             select b.ReceiverIp)
-                            .Distinct();
-                var ipArr = query.FirstOrDefault();
-                var query1 = from b in db.users
-                             where b.ip == ip.ToString()
-                             select b;
-                var tmp = query1.FirstOrDefault();
-                u.online = "online";
-               
-                u.command = "ContactIsOnline";
-                u.contact = ipArr;
-            }
-            return u;
-        }
-
-
+        
+       
 
         private static List<Profile> GetContactList(IPAddress ip)
         {
@@ -492,6 +607,7 @@ namespace Whisper_Server
                         profile.login = tmp.login;
                         profile.avatar = tmp.avatar;
                         profile.phone = tmp.phone;
+                        profile.isOnline = tmp.isOnline;
                         list.Add(profile);
                     }
                     return list;

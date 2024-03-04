@@ -40,5 +40,8 @@ namespace Whisper_Server.Model
         public byte[]? avatar { get; set; }
         [DataMember]
         public string? phone { get; set; }
+
+        [DataMember]
+        public string? isOnline { get; set; }
     }
 }
