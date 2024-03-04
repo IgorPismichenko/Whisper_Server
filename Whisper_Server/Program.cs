@@ -26,15 +26,18 @@ namespace Whisper_Server
             {
                 try
                 {
+                    byte[] buf = new byte[1000000];
                     IPEndPoint ipEndPoint = new IPEndPoint(IPAddress.Any, 49152);
                     Socket sListener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                    sListener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveBuffer, 10000000);
-                    sListener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.SendBuffer, 10000000);
+                    sListener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveBuffer, buf);
+                    sListener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.SendBuffer, buf);
                     sListener.Bind(ipEndPoint);
                     sListener.Listen();
                     while (true)
                     {
                         Socket handler = sListener.Accept();
+                        handler.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveBuffer, buf);
+                        handler.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.SendBuffer, buf);
                         Receive(handler);
                     }
                 }
@@ -163,11 +166,12 @@ namespace Whisper_Server
                                 }
                                 
                                 db.SaveChanges();
+                                User u = new User();
+                                u.chat = new List<Chat>();
                                 var query1 = from b in db.messages
                                              where (b.SenderLogin == senderLogin && b.ReceiverLogin == receiverLogin) || (b.SenderLogin == receiverLogin && b.ReceiverLogin == senderLogin)
                                              select b;
                                 var tmpObjects = query1.ToList();
-                                user.chat = new List<Chat>();
                                 foreach (var obj in tmpObjects)
                                 {
                                     Chat c = new Chat();
@@ -181,12 +185,12 @@ namespace Whisper_Server
                                     }
                                     c.date = obj.Date;
                                     c.chatContact = obj.SenderLogin;
-                                    user.chat.Add(c);
+                                    u.chat.Add(c);
                                 }
-                                user.contact = receiverIp;
-                                user.command = "SendingMessage";
+                                u.contact = receiverIp;
+                                u.command = "SendingMessage";
+                                SendToReceiver(u);
                             }
-                            SendToReceiver(user);
                         }
                         else if (user.command == "Search")
                         {
@@ -380,9 +384,10 @@ namespace Whisper_Server
             {
                 try
                 {
+                    byte[] buf = new byte[1000000];
                     Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                    socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveBuffer, 10000000);
-                    socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.SendBuffer, 10000000);
+                    socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveBuffer, buf);
+                    socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.SendBuffer, buf);
                     IPAddress ipAddr = IPAddress.Parse(user.contact);
                     IPEndPoint ipEndPoint = new IPEndPoint(ipAddr, 49153);
                     if (IsEndPointAvailable(ipEndPoint, socket))
