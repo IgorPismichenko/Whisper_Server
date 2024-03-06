@@ -56,7 +56,7 @@ namespace Whisper_Server
                     User user = new User();
                     DataContractJsonSerializer jsonFormatter = null;
                     jsonFormatter = new DataContractJsonSerializer(typeof(User));
-                    byte[] bytes = new byte[10000000];
+                    byte[] bytes = new byte[1000000];
                     int bytesRec = 0;
                     while (true)
                     {
@@ -143,6 +143,8 @@ namespace Whisper_Server
                                              where b.ip == ip.ToString()
                                              select b.login;
                                 var senderLogin = query2.FirstOrDefault();
+                                User u = new User();
+                                u.c = new Chat();
                                 if (user.media != null)
                                 {
                                     string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
@@ -158,38 +160,48 @@ namespace Whisper_Server
                                     }
                                     var message = new Messages() { SenderLogin = senderLogin, ReceiverLogin = receiverLogin, Media = filePath, Date = user.data };
                                     db.messages.Add(message);
+                                    u.c.chatContact = senderLogin;
+                                    u.c.media = user.media;
+                                    u.c.date = user.data;
+                                    u.contact = receiverIp;
+                                    u.command = "SendingMessage";
                                 }
                                 else
                                 {
                                     var message = new Messages() { SenderLogin = senderLogin, ReceiverLogin = receiverLogin, Message = user.mess, Date = user.data };
                                     db.messages.Add(message);
+                                    u.c.chatContact = senderLogin;
+                                    u.c.message = user.mess;
+                                    u.c.date = user.data;
+                                    u.contact = receiverIp;
+                                    u.command = "SendingMessage";
                                 }
                                 
                                 db.SaveChanges();
-                                User u = new User();
-                                u.chat = new List<Chat>();
-                                var query1 = from b in db.messages
-                                             where (b.SenderLogin == senderLogin && b.ReceiverLogin == receiverLogin) || (b.SenderLogin == receiverLogin && b.ReceiverLogin == senderLogin)
-                                             select b;
-                                var tmpObjects = query1.ToList();
-                                foreach (var obj in tmpObjects)
-                                {
-                                    Chat c = new Chat();
-                                    if (obj.Message != null)
-                                    {
-                                        c.message = obj.Message;
-                                    }
-                                    if (obj.Media != null)
-                                    {
-                                        c.media = GetImageBytes(obj.Media);
-                                    }
-                                    c.date = obj.Date;
-                                    c.chatContact = obj.SenderLogin;
-                                    u.chat.Add(c);
-                                }
-                                u.contact = receiverIp;
-                                u.command = "SendingMessage";
                                 SendToReceiver(u);
+                                
+                                //var query1 = from b in db.messages
+                                //             where (b.SenderLogin == senderLogin && b.ReceiverLogin == receiverLogin) || (b.SenderLogin == receiverLogin && b.ReceiverLogin == senderLogin)
+                                //             select b;
+                                //var tmpObjects = query1.ToList();
+                                //foreach (var obj in tmpObjects)
+                                //{
+                                //    Chat c = new Chat();
+                                //    if (obj.Message != null)
+                                //    {
+                                //        c.message = obj.Message;
+                                //    }
+                                //    if (obj.Media != null)
+                                //    {
+                                //        c.media = GetImageBytes(obj.Media);
+                                //    }
+                                //    c.date = obj.Date;
+                                //    c.chatContact = obj.SenderLogin;
+                                //    u.chat.Add(c);
+                                //}
+                                //u.contact = receiverIp;
+                                //u.command = "SendingMessage";
+                                //SendToReceiver(u);
                             }
                         }
                         else if (user.command == "Search")
