@@ -86,6 +86,9 @@ namespace Whisper_Server
                                             select b.Id;
 
                                 var tmp = query.FirstOrDefault();
+
+                              
+
                                 if (query.Count() > 0)
                                 {
                                     user.command = "AcceptLog";
@@ -101,6 +104,7 @@ namespace Whisper_Server
 
                                     var id = query1.FirstOrDefault();
                                     var toUpdate = db.users.Find(id);
+
                                     if (toUpdate != null)
                                     {
                                         
@@ -116,21 +120,47 @@ namespace Whisper_Server
                                         var receiverIps = query2.ToList();
 
 
+
+                                        //var query3 = from b in db2.users
+                                        //             where b.login == user.contact
+                                        //             select b.ip;
+                                        //var tmp3 = query3.FirstOrDefault();
+                                        //var tmp4 = db2.blackList.Where(x => x.BlokedIp == ip.ToString() && x.BlockerIp == tmp3.ToString()).FirstOrDefault();
+
+                                        //var tmp4 = query4.FirstOrDefault();
+
                                         //var onlineUsers = db.users.Where(u => u.ip == ip.ToString() && u.isOnline == u.isOnline).ToList();
+
                                         var onlineUsers = from b in db2.users
                                                           where b.ip == ip.ToString()
                                                           select b;
                                         var onlineReceiverIps = onlineUsers.FirstOrDefault();
+
+                                        var check = (from b in db2.blackList
+                                                     where b.BlockerIp == ip.ToString()
+                                                     select b.BloсkedIp).Distinct();
+                                        var blackList = check.ToList();
+
+
                                         u.login = onlineReceiverIps.login;
                                         u.command = "ContactIsOnline";
-                                        u.online = "green";
 
+
+                                        u.online = "green";
                                         foreach (var onlineUser in receiverIps)
                                         {
 
-                                            u.contact = onlineUser;
-                                            SendToReceiver(u);
+                                           foreach(var blockerUser in blackList)
+                                           {
+                                                u.online = "black";
+                                                
+                                           }
 
+                                               
+                                           u.contact = onlineUser;
+                                           SendToReceiver(u);
+                                          
+                                              
                                         }
 
 
@@ -189,27 +219,75 @@ namespace Whisper_Server
                             WriteLine("User " + user.login + " sent message on " + DateTime.Now.ToString() + " to " + user.contact);
                             using (var db = new UsersContext())
                             {
+
+
                                 var query = from b in db.users
                                             where b.login == user.contact
                                             where b.login == user.contact
                                             select b.ip;
                                 var tmp = query.FirstOrDefault();
+
                                 var query2 = from b in db.users
                                              where b.ip == ip.ToString()
                                              select b.login;
                                 var tmp2 = query2.FirstOrDefault();
-                                var message = new Messages() { SenderIp = ip.ToString(), ReceiverIp = tmp?.ToString(), Message = user.mess };
-                                db.messages.Add(message);
-                                db.SaveChanges();
-                                var query1 = from b in db.messages
-                                             where (b.SenderIp == ip.ToString() && b.ReceiverIp == tmp) || (b.SenderIp == tmp && b.ReceiverIp == ip.ToString())
-                                             select b.Message;
-                                user.chat = query1.ToList();
-                                user.contact = tmp;
-                                user.login = tmp2;
-                                user.command = "SendingMessage";
+
+                              
+
+                                var query3 = from b in db.blackList
+                                             where b.BlockerIp == ip.ToString() && b.BloсkedIp == tmp.ToString() && b.Value == true
+                                             select b;
+                                var tmp3 = query3.FirstOrDefault();
+
+
+
+                                var query4 = from b in db.blackList
+                                             where b.BlockerIp == tmp.ToString() && b.BloсkedIp == ip.ToString() && b.Value == true
+                                             select b;
+                                var tmp4 = query4.FirstOrDefault();
+
+                                var query5 = from b in db.users
+                                             where b.ip == tmp.ToString()
+                                             select b.login;
+                                var tmp5 = query5.FirstOrDefault();
+
+                                if (tmp3 != null ) 
+                                {
+                                    //user.online = "black";
+                                    //user.contact = tmp4.ToString();
+                                    user.login = tmp2.ToString();
+                                   
+                                    user.command = "UserInBlackList";
+                                    Responce(handler, user);
+                                }
+                                if ( tmp4 != null)
+                                {
+                                    //user.online = "black";
+                                    //user.contact = tmp4.ToString();
+                                   
+                                    user.contact = tmp5.ToString();
+                                    user.command = "UserInBlackList";
+                                    Responce(handler, user);
+                                }
+                                else if (tmp3 == null || tmp4 == null) 
+                                {
+                                    
+                                    var message = new Messages() { SenderIp = ip.ToString(), ReceiverIp = tmp?.ToString(), Message = user.mess };
+                                    db.messages.Add(message);
+                                    db.SaveChanges();
+                                    var query1 = from b in db.messages
+                                                 where (b.SenderIp == ip.ToString() && b.ReceiverIp == tmp) || (b.SenderIp == tmp && b.ReceiverIp == ip.ToString())
+                                                 select b.Message;
+                                    user.chat = query1.ToList();
+                                    user.contact = tmp;
+                                    user.login = tmp2;
+                                    user.command = "SendingMessage";
+                                    SendToReceiver(user);
+                                }
+
+                               
                             }
-                            SendToReceiver(user);
+                            
                         }
                         else if (user.command == "Search")
                         {
@@ -246,6 +324,13 @@ namespace Whisper_Server
                                              where b.login == user.contact
                                              select b;
                                 var temp = query1.FirstOrDefault();
+
+                                var query2 = from b in db.users
+                                            where b.login == user.contact
+                                            where b.login == user.contact
+                                            select b.ip;
+                                var tmp2 = query2.FirstOrDefault();
+
                                 var query = from b in db.messages
                                             where (b.SenderIp == ip.ToString() && b.ReceiverIp == temp.ip) || (b.SenderIp == temp.ip && b.ReceiverIp == ip.ToString())
                                             select b.Message;
@@ -255,10 +340,54 @@ namespace Whisper_Server
                                                   select b;
                                 var onlineReceiverIps = onlineUsers.FirstOrDefault();
 
-                                user.chat = query.ToList();
-                                user.login = temp.login;
-                                user.online = temp.isOnline;
-                                user.command = "Chat";
+                                var query3 = from b in db.blackList
+                                             where b.BloсkedIp == tmp2.ToString() && b.BlockerIp == ip.ToString()
+                                             select b;
+                                var tmp3 = query3.FirstOrDefault();
+
+                                var query4 = from b in db.blackList
+                                             where b.BloсkedIp == ip.ToString() && b.BlockerIp == tmp2.ToString()
+                                             select b;
+                                var tmp4 = query4.FirstOrDefault();
+
+                                if (tmp3 != null)
+                                {
+                                    //user.contact = temp.ToString();
+                                   
+                                    user.block = tmp3.Value;
+
+                                    user.avatar = temp.avatar;
+                                    user.chat = query.ToList();
+                                    user.login = temp.login;
+                                    user.online = temp.isOnline;
+                                    user.command = "Chat";
+                                }
+                                if (tmp4 != null)
+                                {
+                                    user.contact = temp.ToString();
+                                    user.online = "black";
+                                    user.avatar = temp.avatar;
+                                    user.chat = query.ToList();
+                                    user.login = temp.login;
+                                    user.command = "Chat";
+
+                                }
+                                if (tmp3 == null && tmp4 == null) 
+                                {
+                                    user.avatar = temp.avatar;
+                                    user.chat = query.ToList();
+                                    user.login = temp.login;
+                                    user.online = temp.isOnline;
+                                    user.command = "Chat";
+
+                                }
+
+                                //user.avatar = temp.avatar;
+                                //user.chat = query.ToList();
+                                //user.login = temp.login;
+                                //user.online = temp.isOnline;
+                                //user.command = "Chat";
+                                
 
                                 //using (var db2 = new UsersContext())
                                 //{
@@ -469,13 +598,22 @@ namespace Whisper_Server
                                                  select b;
                                     var onlineReceiverIps = onlineUsers.FirstOrDefault();
 
+                                    var check = (from b in db.blackList
+                                                 where b.BlockerIp == ip.ToString()
+                                                 select b.BloсkedIp).Distinct();
+                                    var blackList = check.ToList();
+
                                     u.login = onlineReceiverIps.login;
                                     u.command = "ContactIsOnline";
                                     u.online = "red";
 
                                     foreach (var onlineUser in receiverIps)
                                     {
-                                        
+                                        foreach (var blockerUser in blackList)
+                                        {
+                                            u.online = "black";
+
+                                        }
                                         u.contact = onlineUser;
                                         SendToReceiver(u);
 
@@ -484,6 +622,73 @@ namespace Whisper_Server
                             }
 
                             
+                        }
+                        else if(user.command == "BlockContact")
+                        {
+                            using(var db = new UsersContext())
+                            {
+                                var query = from b in db.users
+                                            where b.login == user.contact
+                                            where b.login == user.contact
+                                            select b.ip;
+                                var tmp = query.FirstOrDefault();
+
+                                var query2 = from b in db.users
+                                             where b.ip == ip.ToString()
+                                             select b.login;
+
+                                var tmp2 = query2.FirstOrDefault();
+
+                                //var query3 = from b in db.blackList
+                                //            where b.BlockerIp == ip.ToString() &&  b.BlokedIp == tmp.ToString()
+                                //            select b.Value;
+                                //var tmp3 = query.FirstOrDefault();
+                                //if(tmp3 == null)
+                                //{
+                                //    var content = new BlackList() { BlockerIp = ip.ToString(), BlokedIp = tmp?.ToString(), Value = true };
+                                //    db.blackList.Add(content);
+                                //    db.SaveChanges();
+                                //    user.block = true;
+                                //    user.command = "BlockIsSuccessful";
+
+                                //}
+                                //else
+                                //{
+                                //    user.command = "CantBeBlock";
+                                //}
+
+                                var isBlocked = db.blackList.Any(b => b.BlockerIp == ip.ToString() && b.BloсkedIp == tmp.ToString());
+
+                                if (!isBlocked)
+                                {
+                                    var content = new BlackList() { BlockerIp = ip.ToString(), BloсkedIp = tmp?.ToString(), Value = true };
+                                    db.blackList.Add(content);
+                                    db.SaveChanges();
+                                    user.block = true;
+                                    user.command = "BlockIsSuccessful";
+                                }
+                                else
+                                {
+                                    user.command = "CantBeBlock";
+                                }
+                            }
+                            Responce(handler, user);
+                        }
+                        else if(user.command == "UnblockContact")
+                        {
+                            using(var db = new UsersContext())
+                            {
+                                var query = from b in db.blackList
+                                            where b.BlockerIp == ip.ToString()
+                                            
+                                            select b;
+                                var tmp = query.FirstOrDefault();
+                                db.blackList.Remove(tmp);
+                                db.SaveChanges();
+
+                                user.command = "UnblockIsSuccessful";
+                            }
+                            Responce(handler, user);
                         }
 
                     }

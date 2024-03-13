@@ -27,6 +27,9 @@ namespace Whisper_Server.Model
         public byte[]? avatar { get; set; }
         [DataMember]
         public string? online { get; set; }
+
+        [DataMember]
+        public bool? block { get; set; }
         [DataMember]
         public List<Profile>? profile { get; set; }
     }

@@ -28,6 +28,8 @@ namespace Whisper_Server.DbContexts
         public DbSet<Users> users { get; set; }
         public DbSet<Messages> messages { get; set; }
 
+        public DbSet<BlackList> blackList { get; set; }
+
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder.UseLazyLoadingProxies();
