@@ -14,6 +14,7 @@ namespace Whisper_Server
 {
     class Program
     {
+        static Socket chatSocket;
         static void Main(string[] args)
         {
             Accept();
@@ -36,8 +37,6 @@ namespace Whisper_Server
                     while (true)
                     {
                         Socket handler = sListener.Accept();
-                        handler.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveBuffer, buf);
-                        handler.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.SendBuffer, buf);
                         Receive(handler);
                     }
                 }
@@ -179,29 +178,6 @@ namespace Whisper_Server
                                 
                                 db.SaveChanges();
                                 SendToReceiver(u);
-                                
-                                //var query1 = from b in db.messages
-                                //             where (b.SenderLogin == senderLogin && b.ReceiverLogin == receiverLogin) || (b.SenderLogin == receiverLogin && b.ReceiverLogin == senderLogin)
-                                //             select b;
-                                //var tmpObjects = query1.ToList();
-                                //foreach (var obj in tmpObjects)
-                                //{
-                                //    Chat c = new Chat();
-                                //    if (obj.Message != null)
-                                //    {
-                                //        c.message = obj.Message;
-                                //    }
-                                //    if (obj.Media != null)
-                                //    {
-                                //        c.media = GetImageBytes(obj.Media);
-                                //    }
-                                //    c.date = obj.Date;
-                                //    c.chatContact = obj.SenderLogin;
-                                //    u.chat.Add(c);
-                                //}
-                                //u.contact = receiverIp;
-                                //u.command = "SendingMessage";
-                                //SendToReceiver(u);
                             }
                         }
                         else if (user.command == "Search")
@@ -397,12 +373,12 @@ namespace Whisper_Server
                 try
                 {
                     byte[] buf = new byte[1000000];
-                    Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                    socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveBuffer, buf);
-                    socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.SendBuffer, buf);
+                    chatSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                    chatSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveBuffer, buf);
+                    chatSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.SendBuffer, buf);
                     IPAddress ipAddr = IPAddress.Parse(user.contact);
                     IPEndPoint ipEndPoint = new IPEndPoint(ipAddr, 49153);
-                    if (IsEndPointAvailable(ipEndPoint, socket))
+                    if (IsEndPointAvailable(ipEndPoint, chatSocket))
                     {
                         DataContractJsonSerializer jsonFormatter = null;
                         jsonFormatter = new DataContractJsonSerializer(typeof(User));
@@ -410,10 +386,8 @@ namespace Whisper_Server
                         byte[] msg = null;
                         jsonFormatter.WriteObject(stream, user);
                         msg = stream.ToArray();
-                        socket.Send(msg);
+                        chatSocket.Send(msg);
                         stream.Close();
-                        socket.Shutdown(SocketShutdown.Both);
-                        socket.Close();
                     }
                 }
                 catch (Exception ex)
