@@ -283,11 +283,13 @@ namespace Whisper_Server
                                     user.mediaList = new List<byte[]>();
                                     for (int i = 0; i < tmpMedia.Count(); i++)
                                     {
-                                        if (File.Exists(tmpMedia[i]))
+                                       
+                                        if (tmpMedia[i] != null)
                                         {
-                                            byte[] m = File.ReadAllBytes(tmpMedia[i]);
+                                            byte[] m = GetImageBytes(tmpMedia[i]);
                                             user.mediaList.Add(m);
                                         }
+                                        
                                         if (i == 6)
                                             break;
                                     }
