@@ -89,6 +89,12 @@ namespace Whisper_Server
                                 var tmp = query.FirstOrDefault();
                                 if (query.Count() > 0)
                                 {
+                                    var toUpdate = db.users.Find(tmp.Id);
+                                    if (toUpdate != null)
+                                    {
+                                        toUpdate.isOnline = "green";
+                                        db.SaveChanges();
+                                    }
                                     user.command = "AcceptLog";
                                     user.avatar = tmp.avatar;
                                     user.phone = tmp.phone;
@@ -102,6 +108,23 @@ namespace Whisper_Server
                                 }
                             }
                             Responce(handler, user);
+                            User u = new User();
+                            List<string> ips = SendChangedProfile(ip);
+                            using (var db = new UsersContext())
+                            {
+                                var query1 = from b in db.users
+                                             where b.ip == ip.ToString()
+                                             select b;
+                                var tmp1 = query1.FirstOrDefault();
+                                u.login = tmp1.login;
+                                u.isOnline = tmp1.isOnline;
+                                u.command = "ContactOnline";
+                            }
+                            foreach (var i in ips)
+                            {
+                                u.contact = i;
+                                SendToReceiver(u);
+                            }
                         }
                         else if (user.command == "Register")
                         {
@@ -118,7 +141,7 @@ namespace Whisper_Server
                                 }
                                 else
                                 {
-                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone, ip = ip.ToString(), avatar = user.avatar };
+                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone, ip = ip.ToString(), avatar = user.avatar, isOnline = "green" };
                                     db.users.Add(User);
                                     db.SaveChanges();
                                     user.command = "Accept";
@@ -135,13 +158,13 @@ namespace Whisper_Server
                                 var query = from b in db.users
                                             where b.login == user.contact
                                             select b;
-                                var tmp = query.FirstOrDefault();
-                                var receiverLogin = tmp.login;
-                                var receiverIp = tmp.ip;
+                                var receiver = query.FirstOrDefault();
+                                //var receiverLogin = tmp.login;
+                                //var receiverIp = tmp.ip;
                                 var query2 = from b in db.users
                                              where b.ip == ip.ToString()
-                                             select b.login;
-                                var senderLogin = query2.FirstOrDefault();
+                                             select b;
+                                var sender = query2.FirstOrDefault();
                                 User u = new User();
                                 u.c = new Chat();
                                 if (user.media != null)
@@ -157,22 +180,22 @@ namespace Whisper_Server
                                     {
                                         fs.Write(user.media, 0, user.media.Length);
                                     }
-                                    var message = new Messages() { SenderLogin = senderLogin, ReceiverLogin = receiverLogin, Media = filePath, Date = user.data };
+                                    var message = new Messages() { SenderUserId = sender.Id, ReceiverUserId = receiver.Id, Media = filePath, Date = user.data };
                                     db.messages.Add(message);
-                                    u.c.chatContact = senderLogin;
+                                    u.c.chatContact = sender.login;
                                     u.c.media = user.media;
                                     u.c.date = user.data;
-                                    u.contact = receiverIp;
+                                    u.contact = receiver.ip;
                                     u.command = "SendingMessage";
                                 }
                                 else
                                 {
-                                    var message = new Messages() { SenderLogin = senderLogin, ReceiverLogin = receiverLogin, Message = user.mess, Date = user.data };
+                                    var message = new Messages() { SenderUserId = sender.Id, ReceiverUserId = receiver.Id, Message = user.mess, Date = user.data };
                                     db.messages.Add(message);
-                                    u.c.chatContact = senderLogin;
+                                    u.c.chatContact = sender.login;
                                     u.c.message = user.mess;
                                     u.c.date = user.data;
-                                    u.contact = receiverIp;
+                                    u.contact = receiver.ip;
                                     u.command = "SendingMessage";
                                 }
                                 
@@ -211,16 +234,31 @@ namespace Whisper_Server
                             {
                                 var query1 = from b in db.users
                                              where b.login == user.contact
-                                             select b.login;
+                                             select b;
                                 var query2 = from b in db.users
                                              where b.ip == ip.ToString()
-                                             select b.login;
-                                var contactLogin = query1.FirstOrDefault();
-                                var senderLogin = query2.FirstOrDefault();
+                                             select b;
+                                var contact = query1.FirstOrDefault();
+                                var sender = query2.FirstOrDefault();
+                                var query3 = from b in db.blackList
+                                             where b.BlockedUserId == contact.Id && b.BlockerUserId == sender.Id
+                                             select b.Value;
+                                if (query3.Count() > 0)
+                                {
+                                    bool isBlocked = query3.FirstOrDefault();
+                                    if (isBlocked)
+                                    {
+                                        user.blocked = "block";
+                                    }
+                                }
                                 var query = from b in db.messages
-                                            where (b.SenderLogin == senderLogin && b.ReceiverLogin == contactLogin) || (b.SenderLogin == contactLogin && b.ReceiverLogin == senderLogin)
+                                            where (b.SenderUserId == sender.Id && b.ReceiverUserId == contact.Id) || (b.SenderUserId == contact.Id && b.ReceiverUserId == sender.Id)
                                             select b;
                                 var tmpObjects = query.ToList();
+                                var query4 = from b in db.messages
+                                             where (b.SenderUserId == sender.Id && b.ReceiverUserId == contact.Id) || (b.SenderUserId == contact.Id && b.ReceiverUserId == sender.Id)
+                                             select b.Media;
+                                var tmpMedia = query4.ToList();
                                 user.chat = new List<Chat>();
                                 foreach (var obj in tmpObjects)
                                 {
@@ -236,10 +274,26 @@ namespace Whisper_Server
                                         string filePath = Path.Combine(folderPath, obj.Media);
                                         c.media = GetImageBytes(filePath);
                                     }
-                                    c.chatContact = obj.SenderLogin;
+                                    c.chatContact = obj.SenderUser.login;
                                     c.date = obj.Date;
                                     user.chat.Add(c);
                                 }
+                                if (tmpMedia.Count() > 0)
+                                {
+                                    user.mediaList = new List<byte[]>();
+                                    for (int i = 0; i < tmpMedia.Count(); i++)
+                                    {
+                                        if (File.Exists(tmpMedia[i]))
+                                        {
+                                            byte[] m = File.ReadAllBytes(tmpMedia[i]);
+                                            user.mediaList.Add(m);
+                                        }
+                                        if (i == 6)
+                                            break;
+                                    }
+                                }
+                                user.phone = contact.phone;
+                                user.isOnline = contact.isOnline;
                                 user.command = "Chat";
                             }
                             Responce(handler, user);
@@ -334,6 +388,88 @@ namespace Whisper_Server
                             }
                             Responce(handler, user);
                         }
+                        else if (user.command == "BlockContact")
+                        {
+                            using (var db = new UsersContext())
+                            {
+                                var query = from b in db.users
+                                            where b.ip == ip.ToString()
+                                            select b;
+                                var blocker  = query.FirstOrDefault();
+                                var query2 = from b in db.users
+                                             where b.login == user.contact
+                                             select b;
+                                var blocked = query2.FirstOrDefault();
+                                var blockedUser = new BlackList() { BlockerUserId = blocker.Id, BlockedUserId = blocked.Id, Value = true };
+                                db.blackList.Add(blockedUser);
+                                db.SaveChanges();
+                                user.blocked = "block";
+                                user.command = "ContactIsBlocked";
+                                WriteLine("User " + user.login + " blocked user" + user.contact + " at " + DateTime.Now.ToString());
+                            }
+                            Responce(handler, user);
+                        }
+                        else if (user.command == "UnblockContact")
+                        {
+                            using (var db = new UsersContext())
+                            {
+                                var query = from b in db.users
+                                            where b.ip == ip.ToString()
+                                            select b;
+                                var blocker = query.FirstOrDefault();
+                                var query2 = from b in db.users
+                                             where b.login == user.contact
+                                             select b;
+                                var blocked = query2.FirstOrDefault();
+                                var query3 = from b in db.blackList
+                                             where b.BlockerUserId == blocker.Id && b.BlockedUserId == blocked.Id
+                                             select b.Id;
+                                var ID = query3.FirstOrDefault();
+                                var toUpdate = db.blackList.Find(ID);
+                                if (toUpdate != null)
+                                {
+                                    toUpdate.Value = false;
+                                }
+                                db.SaveChanges();
+                                user.blocked = "unblock";
+                                user.command = "ContactIsUnblocked";
+                                WriteLine("User " + user.login + " unblocked user " + user.contact + " at " + DateTime.Now.ToString());
+                            }
+                            Responce(handler, user);
+                        }
+                        else if(user.command == "CloseCommand")
+                        {
+                            WriteLine("User " + user.login + " went offline at " + DateTime.Now.ToString());
+                            using (var db = new UsersContext())
+                            {
+                                var query = from b in db.users
+                                            where b.ip == ip.ToString()
+                                            select b;
+                                var tmp = query.FirstOrDefault();
+                                var toUpdate = db.users.Find(tmp.Id);
+                                if (toUpdate != null)
+                                {
+                                    toUpdate.isOnline = user.isOnline;
+                                    db.SaveChanges();
+                                }
+                            }
+                        }
+                        else if (user.command == "DeleteSms")
+                        {
+                            WriteLine("User " + user.login + " removed " + user.mess + " from his chat contacts with " + user.contact + " at " + DateTime.Now.ToString());
+                            using(var db = new UsersContext())
+                            {
+                                var query = from b in db.messages
+                                            where b.Message == user.mess
+                                            select b;
+                                var obj = query.FirstOrDefault();
+                                if(obj != null)
+                                {
+                                    db.messages.Remove(obj);
+                                    db.SaveChanges();
+                                }
+                            }
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -419,14 +555,14 @@ namespace Whisper_Server
                              select b;
                 var tmp = query1.FirstOrDefault();
                 var query = (from b in db.messages
-                             where b.SenderLogin == tmp.login
-                             select b.ReceiverLogin)
+                             where b.SenderUserId == tmp.Id
+                             select b.ReceiverUser)
                             .Distinct();
                 var loginArr = query.ToList();
                 foreach(var l in  loginArr)
                 {
                     var query2 = from b in db.users
-                                 where b.login == l
+                                 where b.login == l.login
                                  select b.ip;
                     if(query2.Count() > 0)
                         ipArr.Add(query2.FirstOrDefault());
@@ -441,11 +577,11 @@ namespace Whisper_Server
             {
                 var query1 = from b in db.users
                              where b.ip == ip.ToString()
-                             select b.login;
+                             select b;
                 var log = query1.FirstOrDefault();
                 var query = (from b in db.messages
-                             where b.SenderLogin == log
-                             select b.ReceiverLogin)
+                             where b.SenderUserId == log.Id
+                             select b.ReceiverUser)
                                 .Distinct();
                 var logArr = query.ToArray();
                 List<Profile> list = new List<Profile>();
@@ -454,7 +590,7 @@ namespace Whisper_Server
                     foreach (var o in logArr)
                     {
                         var query2 = from b in db.users
-                                     where b.login == o
+                                     where b.login == o.login
                                      select b;
                         var tmp = query2.FirstOrDefault();
                         Profile profile = new Profile();

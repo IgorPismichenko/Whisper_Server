@@ -30,11 +30,17 @@ namespace Whisper_Server.Model
         [DataMember]
         public List<Profile>? profile { get; set; }
         [DataMember]
+        public List<byte[]>? mediaList { get; set; }
+        [DataMember]
         public byte[]? media { get; set; }
 
         [DataMember]
         public string? data { get; set; }
         [DataMember]
         public Chat? c {  get; set; }
+        [DataMember]
+        public string? blocked { get; set; }
+        [DataMember]
+        public string? isOnline { get; set; }
     }
 }
