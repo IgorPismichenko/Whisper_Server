@@ -281,7 +281,7 @@ namespace Whisper_Server
                                 if (tmpMedia.Count() > 0)
                                 {
                                     user.mediaList = new List<byte[]>();
-                                    for (int i = 0; i < tmpMedia.Count(); i++)
+                                    for (int i = tmpMedia.Count() - 1; i > 0; i--)
                                     {
                                        
                                         if (tmpMedia[i] != null)
@@ -290,12 +290,13 @@ namespace Whisper_Server
                                             user.mediaList.Add(m);
                                         }
                                         
-                                        if (i == 6)
+                                        if (i == tmpMedia.Count() - 6)
                                             break;
                                     }
                                 }
                                 user.phone = contact.phone;
                                 user.isOnline = contact.isOnline;
+                                user.avatar = contact.avatar;
                                 user.command = "Chat";
                             }
                             Responce(handler, user);
