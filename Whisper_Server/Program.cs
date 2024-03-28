@@ -167,40 +167,48 @@ namespace Whisper_Server
                                 var sender = query2.FirstOrDefault();
                                 User u = new User();
                                 u.c = new Chat();
-                                if (user.media != null)
-                                {
-                                    string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
-                                    string folderPath = Path.Combine(baseDirectory, "Media");
-                                    if (!Directory.Exists(folderPath))
-                                    {
-                                        Directory.CreateDirectory(folderPath);
-                                    }
-                                    string filePath = Path.Combine(folderPath, user.path);
-                                    using(FileStream fs = new FileStream(filePath, FileMode.Create))
-                                    {
-                                        fs.Write(user.media, 0, user.media.Length);
-                                    }
-                                    var message = new Messages() { SenderUserId = sender.Id, ReceiverUserId = receiver.Id, Media = filePath, Date = user.data };
-                                    db.messages.Add(message);
-                                    u.c.chatContact = sender.login;
-                                    u.c.media = user.media;
-                                    u.c.date = user.data;
-                                    u.contact = receiver.ip;
-                                    u.command = "SendingMessage";
-                                }
-                                else
-                                {
-                                    var message = new Messages() { SenderUserId = sender.Id, ReceiverUserId = receiver.Id, Message = user.mess, Date = user.data };
-                                    db.messages.Add(message);
-                                    u.c.chatContact = sender.login;
-                                    u.c.message = user.mess;
-                                    u.c.date = user.data;
-                                    u.contact = receiver.ip;
-                                    u.command = "SendingMessage";
-                                }
+
+                               
+
+
+
                                 
-                                db.SaveChanges();
-                                SendToReceiver(u);
+                                    if (user.media != null)
+                                    {
+                                        string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                                        string folderPath = Path.Combine(baseDirectory, "Media");
+                                        if (!Directory.Exists(folderPath))
+                                        {
+                                            Directory.CreateDirectory(folderPath);
+                                        }
+                                        string filePath = Path.Combine(folderPath, user.path);
+                                        using (FileStream fs = new FileStream(filePath, FileMode.Create))
+                                        {
+                                            fs.Write(user.media, 0, user.media.Length);
+                                        }
+                                        var message = new Messages() { SenderUserId = sender.Id, ReceiverUserId = receiver.Id, Media = filePath, Date = user.data };
+                                        db.messages.Add(message);
+                                        u.c.chatContact = sender.login;
+                                        u.c.media = user.media;
+                                        u.c.date = user.data;
+                                        u.contact = receiver.ip;
+                                        u.command = "SendingMessage";
+                                    }
+                                    else if (user.media == null)
+                                    {
+                                        var message = new Messages() { SenderUserId = sender.Id, ReceiverUserId = receiver.Id, Message = user.mess, Date = user.data };
+                                        db.messages.Add(message);
+                                        u.c.chatContact = sender.login;
+                                        u.c.message = user.mess;
+                                        u.c.date = user.data;
+                                        u.contact = receiver.ip;
+                                        u.command = "SendingMessage";
+                                    }
+
+                                    db.SaveChanges();
+                                    SendToReceiver(u);
+                                
+                                
                             }
                         }
                         else if (user.command == "Search")
@@ -243,12 +251,26 @@ namespace Whisper_Server
                                 var query3 = from b in db.blackList
                                              where b.BlockedUserId == contact.Id && b.BlockerUserId == sender.Id
                                              select b.Value;
+
+                                var query5 = from b in db.blackList
+                                             where b.BlockedUserId == sender.Id && b.BlockerUserId == contact.Id
+                                             select b.Value;
+                                user.isOnline = contact.isOnline;
                                 if (query3.Count() > 0)
                                 {
                                     bool isBlocked = query3.FirstOrDefault();
                                     if (isBlocked)
                                     {
                                         user.blocked = "block";
+                                       
+                                    }
+                                }
+                                if(query5.Count() > 0)
+                                {
+                                    bool isBlocker = query5.FirstOrDefault();
+                                    if (isBlocker)
+                                    {
+                                        user.isOnline = "black";
                                     }
                                 }
                                 var query = from b in db.messages
@@ -295,6 +317,7 @@ namespace Whisper_Server
                                     }
                                 }
                                 user.phone = contact.phone;
+                                
                                 user.isOnline = contact.isOnline;
                                 user.avatar = contact.avatar;
                                 user.command = "Chat";
