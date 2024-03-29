@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 namespace Whisper_Server.Model
 {
+    [Serializable]
     [DataContract]
     public class Profile
     {

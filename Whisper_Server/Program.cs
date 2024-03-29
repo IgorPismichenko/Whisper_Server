@@ -9,6 +9,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using Microsoft.EntityFrameworkCore.Storage.Internal;
+using System.Xml.Serialization;
 
 namespace Whisper_Server
 {
@@ -53,8 +54,7 @@ namespace Whisper_Server
                 try
                 {
                     User user = new User();
-                    DataContractJsonSerializer jsonFormatter = null;
-                    jsonFormatter = new DataContractJsonSerializer(typeof(User));
+                    XmlSerializer serializer = new XmlSerializer(typeof(User));
                     byte[] bytes = new byte[1000000];
                     int bytesRec = 0;
                     while (true)
@@ -71,7 +71,7 @@ namespace Whisper_Server
                         try
                         {
                             MemoryStream stream = new MemoryStream(bytes, 0, bytesRec);
-                            user = (User)jsonFormatter.ReadObject(stream);
+                            user = (User)serializer.Deserialize(stream);
                             stream.Close();
                         }
                         catch(Exception ex)
@@ -312,7 +312,7 @@ namespace Whisper_Server
                                             user.mediaList.Add(m);
                                         }
                                         
-                                        if (i == tmpMedia.Count() - 6)
+                                        if (user.mediaList.Count() == 6)
                                             break;
                                     }
                                 }
@@ -512,12 +512,10 @@ namespace Whisper_Server
             {
                 try
                 {
-                    DataContractJsonSerializer jsonFormatter = null;
-                    jsonFormatter = new DataContractJsonSerializer(typeof(User));
+                    XmlSerializer serializer = new XmlSerializer(typeof(User));
                     MemoryStream stream = new MemoryStream();
-                    byte[] msg = null;
-                    jsonFormatter.WriteObject(stream, user);
-                    msg = stream.ToArray();
+                    serializer.Serialize(stream, user);
+                    byte[] msg = stream.ToArray();
                     socket.Send(msg);
                     stream.Close();
                 }
@@ -542,12 +540,10 @@ namespace Whisper_Server
                     IPEndPoint ipEndPoint = new IPEndPoint(ipAddr, 49153);
                     if (IsEndPointAvailable(ipEndPoint, chatSocket))
                     {
-                        DataContractJsonSerializer jsonFormatter = null;
-                        jsonFormatter = new DataContractJsonSerializer(typeof(User));
+                        XmlSerializer serializer = new XmlSerializer(typeof(User));
                         MemoryStream stream = new MemoryStream();
-                        byte[] msg = null;
-                        jsonFormatter.WriteObject(stream, user);
-                        msg = stream.ToArray();
+                        serializer.Serialize(stream, user);
+                        byte[] msg = stream.ToArray();
                         chatSocket.Send(msg);
                         stream.Close();
                     }
@@ -562,11 +558,13 @@ namespace Whisper_Server
         {
             try
             {
+                socket.ReceiveTimeout = 3000;
                 socket.Connect(iPEnd);
                 return true;
             }
-            catch (SocketException)
+            catch (SocketException ex)
             {
+                WriteLine("Сервер-remoteConnect: " + ex.Message);
                 return false;
             }
         }

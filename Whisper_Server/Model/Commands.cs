@@ -6,6 +6,7 @@ using System.Runtime.Serialization.Json;
 namespace Whisper_Server.Model
 
 {
+    [Serializable]
     [DataContract]
     public class User
     {
