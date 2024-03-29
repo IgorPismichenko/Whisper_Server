@@ -56,19 +56,19 @@ namespace Whisper_Server
                 {
                     User user = new User();
                     XmlSerializer serializer = new XmlSerializer(typeof(User));
-                    byte[] bytes = new byte[1000000];
-                    int bytesRec = 0;
+                    
+                    
                     while (true)
                     {
-                        
-                            bytesRec = handler.Receive(bytes);
-                            IPAddress ip = ((IPEndPoint)handler.RemoteEndPoint).Address;
-                            if (bytesRec == 0)
-                            {
-                                handler.Shutdown(SocketShutdown.Both);
-                                handler.Close();
-                                return;
-                            }
+                        byte[] bytes = new byte[1000000];
+                        int bytesRec = handler.Receive(bytes);
+                        IPAddress ip = ((IPEndPoint)handler.RemoteEndPoint).Address;
+                        if (bytesRec == 0)
+                        {
+                            handler.Shutdown(SocketShutdown.Both);
+                            handler.Close();
+                            return;
+                        }
                         try
                         {
                             MemoryStream stream = new MemoryStream(bytes, 0, bytesRec);
@@ -97,7 +97,10 @@ namespace Whisper_Server
                                         db.SaveChanges();
                                     }
                                     user.command = "AcceptLog";
-                                    user.avatar = tmp.avatar;
+                                    if (tmp.avatar != null)
+                                    {
+                                        user.avatar = GetImageBytes(tmp.avatar);
+                                    }
                                     user.phone = tmp.phone;
                                     user.profile = GetContactList(ip);
                                     WriteLine("User " + user.login + " is authorized on " + DateTime.Now.ToString());
@@ -142,7 +145,18 @@ namespace Whisper_Server
                                 }
                                 else
                                 {
-                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone, ip = ip.ToString(), avatar = user.avatar, isOnline = "green" };
+                                    string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                                    string folderPath = Path.Combine(baseDirectory, "Avatars");
+                                    if (!Directory.Exists(folderPath))
+                                    {
+                                        Directory.CreateDirectory(folderPath);
+                                    }
+                                    string filePath = Path.Combine(folderPath, user.path);
+                                    using (FileStream fs = new FileStream(filePath, FileMode.Create))
+                                    {
+                                        fs.Write(user.avatar, 0, user.avatar.Length);
+                                    }
+                                    var User = new Users() { login = user.login, password = user.password, phone = user.phone, ip = ip.ToString(), avatar = filePath, isOnline = "green" };
                                     db.users.Add(User);
                                     db.SaveChanges();
                                     user.command = "Accept";
@@ -160,20 +174,18 @@ namespace Whisper_Server
                                             where b.login == user.contact
                                             select b;
                                 var receiver = query.FirstOrDefault();
-                                //var receiverLogin = tmp.login;
-                                //var receiverIp = tmp.ip;
                                 var query2 = from b in db.users
                                              where b.ip == ip.ToString()
                                              select b;
                                 var sender = query2.FirstOrDefault();
-                                User u = new User();
-                                u.c = new Chat();
-
-                               
-
-
-
-                                
+                                var queryIsblock = from b in db.blackList
+                                                   where b.BlockerUserId == receiver.Id && b.BlockedUserId == sender.Id
+                                                   select b;
+                                var isBlock = queryIsblock.FirstOrDefault();
+                                if (isBlock == null || isBlock.Value == false)
+                                {
+                                    User u = new User();
+                                    u.c = new Chat();
                                     if (user.media != null)
                                     {
                                         string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
@@ -205,11 +217,9 @@ namespace Whisper_Server
                                         u.contact = receiver.ip;
                                         u.command = "SendingMessage";
                                     }
-
                                     db.SaveChanges();
                                     SendToReceiver(u);
-                                
-                                
+                                }
                             }
                         }
                         else if (user.command == "Search")
@@ -225,7 +235,10 @@ namespace Whisper_Server
                                     var tmp = query.FirstOrDefault();
                                     user.command = "Match";
                                     user.contact = tmp?.login;
-                                    user.avatar = tmp.avatar;
+                                    if (tmp.avatar != null)
+                                    {
+                                        user.avatar = GetImageBytes(tmp.avatar);
+                                    }
                                     user.phone = tmp.phone;
                                     WriteLine("Match found: " + tmp?.login);
                                 }
@@ -252,10 +265,6 @@ namespace Whisper_Server
                                 var query3 = from b in db.blackList
                                              where b.BlockedUserId == contact.Id && b.BlockerUserId == sender.Id
                                              select b.Value;
-
-                                //var query5 = from b in db.blackList
-                                //             where b.BlockedUserId == sender.Id && b.BlockerUserId == contact.Id
-                                //             select b.Value;
                                 user.isOnline = contact.isOnline;
                                 if (query3.Count() > 0)
                                 {
@@ -266,14 +275,6 @@ namespace Whisper_Server
                                        
                                     }
                                 }
-                                //if(query5.Count() > 0)
-                                //{
-                                //    bool isBlocker = query5.FirstOrDefault();
-                                //    if (isBlocker)
-                                //    {
-                                //        user.isOnline = "black";
-                                //    }
-                                //}
                                 var query = from b in db.messages
                                             where (b.SenderUserId == sender.Id && b.ReceiverUserId == contact.Id) || (b.SenderUserId == contact.Id && b.ReceiverUserId == sender.Id)
                                             select b;
@@ -320,7 +321,10 @@ namespace Whisper_Server
                                 user.phone = contact.phone;
                                 
                                 user.isOnline = contact.isOnline;
-                                user.avatar = contact.avatar;
+                                if (contact.avatar != null)
+                                {
+                                    user.avatar = GetImageBytes(contact.avatar);
+                                }
                                 user.command = "Chat";
                             }
                             Responce(handler, user);
@@ -357,9 +361,20 @@ namespace Whisper_Server
                                     toUpdate.login = user.login;
                                     toUpdate.password = user.password;
                                     toUpdate.phone = user.phone;
+                                    string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                                    string folderPath = Path.Combine(baseDirectory, "Avatars");
+                                    if (!Directory.Exists(folderPath))
+                                    {
+                                        Directory.CreateDirectory(folderPath);
+                                    }
+                                    string filePath = Path.Combine(folderPath, user.path);
+                                    using (FileStream fs = new FileStream(filePath, FileMode.Create))
+                                    {
+                                        fs.Write(user.avatar, 0, user.avatar.Length);
+                                    }
                                     if (user.avatar != null)
                                     {
-                                        toUpdate.avatar = user.avatar;
+                                        toUpdate.avatar = filePath;
                                     }
                                     toUpdate.ip = ip.ToString();
                                     db.SaveChanges();
@@ -381,7 +396,10 @@ namespace Whisper_Server
                                              select b;
                                 var tmp1 = query1.FirstOrDefault();
                                 u.login = tmp1.login;
-                                u.avatar = tmp1.avatar;
+                                if (tmp1.avatar != null)
+                                {
+                                    u.avatar = GetImageBytes(tmp1.avatar);
+                                }
                                 u.command = "ContactProfileChanged";
                             }
                             u.mess = tmp;
@@ -652,7 +670,10 @@ namespace Whisper_Server
                         var tmp = query2.FirstOrDefault();
                         Profile profile = new Profile();
                         profile.login = tmp.login;
-                        profile.avatar = tmp.avatar;
+                        if (tmp.avatar != null)
+                        {
+                            profile.avatar = GetImageBytes(tmp.avatar);
+                        }
                         profile.phone = tmp.phone;
                         list.Add(profile);
                     }
