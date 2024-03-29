@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Drawing;
 using Microsoft.EntityFrameworkCore.Storage.Internal;
 using System.Xml.Serialization;
+using System.Reflection;
 
 namespace Whisper_Server
 {
@@ -252,9 +253,9 @@ namespace Whisper_Server
                                              where b.BlockedUserId == contact.Id && b.BlockerUserId == sender.Id
                                              select b.Value;
 
-                                var query5 = from b in db.blackList
-                                             where b.BlockedUserId == sender.Id && b.BlockerUserId == contact.Id
-                                             select b.Value;
+                                //var query5 = from b in db.blackList
+                                //             where b.BlockedUserId == sender.Id && b.BlockerUserId == contact.Id
+                                //             select b.Value;
                                 user.isOnline = contact.isOnline;
                                 if (query3.Count() > 0)
                                 {
@@ -265,14 +266,14 @@ namespace Whisper_Server
                                        
                                     }
                                 }
-                                if(query5.Count() > 0)
-                                {
-                                    bool isBlocker = query5.FirstOrDefault();
-                                    if (isBlocker)
-                                    {
-                                        user.isOnline = "black";
-                                    }
-                                }
+                                //if(query5.Count() > 0)
+                                //{
+                                //    bool isBlocker = query5.FirstOrDefault();
+                                //    if (isBlocker)
+                                //    {
+                                //        user.isOnline = "black";
+                                //    }
+                                //}
                                 var query = from b in db.messages
                                             where (b.SenderUserId == sender.Id && b.ReceiverUserId == contact.Id) || (b.SenderUserId == contact.Id && b.ReceiverUserId == sender.Id)
                                             select b;
@@ -396,9 +397,41 @@ namespace Whisper_Server
                             {
                                 var query = from b in db.users
                                             where b.ip == ip.ToString()
-                                            select b.Id;
-                                var id = query.FirstOrDefault();
-                                var toUpdate = db.users.Find(id);
+                                            select b;
+                                var us = query.FirstOrDefault();
+                                var queryMess = from b in db.messages
+                                                where (b.SenderUserId == us.Id || b.ReceiverUserId == us.Id)
+                                                select b;
+                                var messList = queryMess.ToList();
+                                if (messList.Count() > 0)
+                                {
+                                    foreach (var m in messList)
+                                    {
+                                        var tmp = db.messages.Find(m.Id);
+                                        if (tmp != null)
+                                        {
+                                            db.messages.Remove(tmp);
+                                        }
+                                    }
+                                    db.SaveChanges();
+                                }
+                                var queryBL = from b in db.blackList
+                                                where (b.BlockedUserId == us.Id || b.BlockerUserId == us.Id)
+                                                select b;
+                                var blockList = queryMess.ToList();
+                                if (blockList.Count() > 0)
+                                {
+                                    foreach (var m in blockList)
+                                    {
+                                        var tmp = db.blackList.Find(m.Id);
+                                        if (tmp != null)
+                                        {
+                                            db.blackList.Remove(tmp);
+                                        }
+                                    }
+                                    db.SaveChanges();
+                                }
+                                var toUpdate = db.users.Find(us.Id);
                                 if (toUpdate != null)
                                 {
                                     db.users.Remove(toUpdate);
